@@ -270,7 +270,7 @@ rows = []
 
 # Power after intervention
 row = f'<tr>{td_l("Puissance après intervention")}'
-row += td_c("—")
+row += td_c(f"{round(r['Pcentrale'] * r['I2'])} kWc")
 row += td_c(f"{round(r['Pcentrale'] * r['I2'])} kWc")
 row += td_c(f"{round(r['Pcentrale'])} kWc")
 row += td_c(f"{round(r['Pcentrale'] * (1+r['u']))} kWc")
