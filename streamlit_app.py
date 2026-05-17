@@ -5,7 +5,6 @@ Deployable on share.streamlit.io
 
 import math
 import streamlit as st
-import plotly.graph_objects as go
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -204,6 +203,21 @@ with st.sidebar:
     alpha_pct = st.slider("α_rep — Part de panneaux réparables (%)", 0, 100, key="p_alpha_pct")
     st.caption(f"Réparation : **{alpha_pct} %** — Revamping : **{100 - alpha_pct} %**")
 
+    # Puissance panneau à façon (calculée inline)
+    _n    = float(st.session_state.get("p_n",  40000))
+    _Pm   = float(st.session_state.get("p_Pm", 300.0))
+    _d    = float(st.session_state.get("p_d",  0.4)) / 100.0
+    _Y    = float(st.session_state.get("p_Y",  10.0))
+    _Pc   = _n * _Pm / 1000.0
+    _I2   = (1.0 - _d) ** _Y
+    _arep = alpha_pct / 100.0
+    _arev = 1.0 - _arep
+    _Pres = _arep * _n * _Pm * _I2 / 1000.0
+    _gap  = max(0.0, _Pc - _Pres)
+    _nrev = _arev * _n
+    _Pmfac = _gap * 1000.0 / _nrev if _nrev > 0 else 0.0
+    st.info(f"Panneau à façon : **{_Pmfac:.0f} Wc** · gap = {_gap:.0f} kWc")
+
 # ── Build params dict from session state ──────────────────────────────────────
 params = {k: st.session_state[f"p_{k}"] for k in PARAM_KEYS}
 r = compute(params)
@@ -234,8 +248,8 @@ def th_cell(s):
             f'{title}<br><small style="font-weight:400;opacity:.85">{sub}</small></th>')
 
 def td_c(content, bg=""):
-    sty = f"padding:8px 14px;text-align:center;font-size:13px;color:#1e293b;border-bottom:1px solid #f1f5f9;{('background:'+bg+';') if bg else ''}"
-    return f'<td style="{sty}">{content}</td>'
+    sty = f"padding:8px 14px;text-align:center;border-bottom:1px solid #f1f5f9;{('background:'+bg+';') if bg else ''}"
+    return f'<td style="{sty}"><span style="font-size:13px;color:#1e293b">{content}</span></td>'
 
 def td_l(label, bold=False):
     sty = "padding:8px 14px;text-align:left;font-size:12px;font-weight:500;color:#64748b;border-bottom:1px solid #f1f5f9"
@@ -329,35 +343,6 @@ table_html = f"""
 </div>
 """
 st.markdown(table_html, unsafe_allow_html=True)
-
-# ── Bar chart ─────────────────────────────────────────────────────────────────
-non_def = ["rep", "rev", "repow", "mix"]
-bar_labels  = ["Réparation", "Revamping", "Repowering", "Mix Rép+Rev"]
-bar_values  = [r["delta"][s] for s in non_def]
-bar_colors  = [TH[s][0] if r["delta"][s] >= 0 else "#e5e7eb" for s in non_def]
-bar_texts   = [fes(v) for v in bar_values]
-
-fig = go.Figure(go.Bar(
-    x=bar_labels,
-    y=bar_values,
-    marker_color=bar_colors,
-    marker_line_width=0,
-    text=bar_texts,
-    textposition="outside",
-    textfont=dict(size=12),
-))
-fig.update_layout(
-    title=dict(text="Gain brut vs Défaut — ΔCCF", font=dict(size=14, color="#374151")),
-    yaxis=dict(tickformat=",.0f", gridcolor="#f1f5f9"),
-    xaxis=dict(showgrid=False),
-    showlegend=False,
-    plot_bgcolor="white",
-    paper_bgcolor="white",
-    height=280,
-    margin=dict(t=45, b=10, l=70, r=20),
-)
-fig.add_hline(y=0, line_color="#94a3b8", line_width=1)
-st.plotly_chart(fig, use_container_width=True)
 
 # ── Notes ─────────────────────────────────────────────────────────────────────
 with st.expander("📋 Hypothèses & Définitions"):
