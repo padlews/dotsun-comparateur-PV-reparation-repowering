@@ -237,7 +237,7 @@ TH = {
     "defaut": ("#374151", "Défaut",     "Inaction"),
     "rep":    ("#166534", "Réparation", "100 % panneaux"),
     "rev":    ("#1e3a5f", "Revamping",  "100 % panneaux"),
-    "repow":  ("#4c1d95", "Repowering", f"+{int(params['u'])} % capacité"),
+    "repow":  ("#b91c1c", "Repowering", f"+{int(params['u'])} % capacité"),
     "mix":    ("#92400e", "Mix Rép+Rev",f"{alpha_pct}% + {100-alpha_pct}%"),
 }
 
