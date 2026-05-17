@@ -91,7 +91,7 @@ def compute(p):
         return (1.0 - Down_rep / 12.0) if k == 1 else 1.0
 
     ext    = {"defaut": N1, "rep": N1, "rev": N1, "repow": N2, "mix": N1}
-    strats = ["defaut", "rep", "rev", "repow", "mix"]
+    strats = ["defaut", "repow", "rep", "rev", "mix"]
 
     revOA = {}; revPost = {}; cfOA = {}; cfTotal = {}; delta = {}; pct = {}
 
@@ -242,8 +242,12 @@ TH = {
 }
 
 def th_cell(s):
-    c, title, sub = TH[s]
-    return (f'<th style="background:{c};color:#fff;padding:10px 14px;'
+    _, title, sub = TH[s]
+    if s == "mix":
+        bg = "repeating-linear-gradient(135deg,#166534,#166534 5px,#1e3a5f 5px,#1e3a5f 10px)"
+    else:
+        bg = TH[s][0]
+    return (f'<th style="background:{bg};color:#fff;padding:10px 14px;'
             f'text-align:center;font-size:12px;font-weight:600;white-space:nowrap">'
             f'{title}<br><small style="font-weight:400;opacity:.85">{sub}</small></th>')
 
@@ -268,13 +272,13 @@ ext    = r["ext"]
 
 rows = []
 
-# Power after intervention
+# Power after intervention — order: defaut, repow, rep, rev, mix
 row = f'<tr>{td_l("Puissance après intervention")}'
-row += td_c(f"{round(r['Pcentrale'] * r['I2'])} kWc")
-row += td_c(f"{round(r['Pcentrale'] * r['I2'])} kWc")
-row += td_c(f"{round(r['Pcentrale'])} kWc")
-row += td_c(f"{round(r['Pcentrale'] * (1+r['u']))} kWc")
-row += td_c(f"{round(r['Pcentrale'])} kWc")
+row += td_c(f"{round(r['Pcentrale'] * r['I2'])} kWc")           # defaut
+row += td_c(f"{round(r['Pcentrale'] * (1+r['u']))} kWc")        # repow
+row += td_c(f"{round(r['Pcentrale'] * r['I2'])} kWc")           # rep
+row += td_c(f"{round(r['Pcentrale'])} kWc")                     # rev
+row += td_c(f"{round(r['Pcentrale'])} kWc")                     # mix
 rows.append(row + "</tr>")
 
 # Extension
@@ -317,13 +321,13 @@ rows.append(row + "</tr>")
 
 # Delta
 row = f'<tr style="background:#f8fafc">{td_l("ΔCCF vs Défaut (€)")}{td_c("—")}'
-for s in ["rep","rev","repow","mix"]:
+for s in ["repow", "rep", "rev", "mix"]:
     row += td_c(delta_html(r["delta"][s], s))
 rows.append(row + "</tr>")
 
 # Pct
 row = f'<tr style="background:#f8fafc">{td_l("% vs Défaut")}{td_c("—")}'
-for s in ["rep","rev","repow","mix"]:
+for s in ["repow", "rep", "rev", "mix"]:
     row += td_c(pct_html(r["pct"][s]))
 rows.append(row + "</tr>")
 
