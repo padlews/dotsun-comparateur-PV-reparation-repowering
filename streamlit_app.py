@@ -234,7 +234,7 @@ def th_cell(s):
             f'{title}<br><small style="font-weight:400;opacity:.85">{sub}</small></th>')
 
 def td_c(content, bg=""):
-    sty = f"padding:8px 14px;text-align:center;font-size:13px;border-bottom:1px solid #f1f5f9;{('background:'+bg+';') if bg else ''}"
+    sty = f"padding:8px 14px;text-align:center;font-size:13px;color:#1e293b;border-bottom:1px solid #f1f5f9;{('background:'+bg+';') if bg else ''}"
     return f'<td style="{sty}">{content}</td>'
 
 def td_l(label, bold=False):
