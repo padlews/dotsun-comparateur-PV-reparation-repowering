@@ -139,7 +139,7 @@ st.markdown(
         <span style="color:#fff">DOT</span>Sun
       </span>
       <span style="font-size:15px;color:#94a3b8">
-        Comparateur de Stratégie de rénovation de Parc PV&nbsp;: Analyse du revenu cumulé net
+        Comparateur de Stratégie de rénovation de Parc PV&nbsp;: Analyse du revenu cumulé net de CAPEX
       </span>
       <span style="font-size:11px;color:#475569;margin-left:auto">
         Défaut · Réparation · Revamping · Repowering
