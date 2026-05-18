@@ -204,7 +204,7 @@ def generate_pdf(params, r, alpha_pct):
     # ── Title & best strategy ──
     pdf.set_font("Helvetica", "B", 15)
     pdf.set_text_color(15, 23, 42)
-    pdf.cell(0, 9, "Rapport d'Analyse — Strategies de Renovation PV", ln=True)
+    pdf.cell(0, 9, "Rapport d'Analyse - Strategies de Renovation PV", ln=True)
     pdf.ln(1)
 
     best_lbl = {"defaut": "Defaut", "rep": "Reparation", "rev": "Revamping",
@@ -343,11 +343,11 @@ def generate_pdf(params, r, alpha_pct):
     pdf.ln(3)
 
     hyp = [
-        ("Reparation",  "Restitution de l'integrite electrique du panneau — ne remet pas a zero la degradation naturelle des cellules."),
-        ("Revamping",   "Remplacement par des panneaux a facon (format & caracteristiques similaires) — panneaux neufs."),
+        ("Reparation",  "Restitution de l'integrite electrique du panneau - ne remet pas a zero la degradation naturelle des cellules."),
+        ("Revamping",   "Remplacement par des panneaux a facon (format & caracteristiques similaires) - panneaux neufs."),
         ("Repowering",  "Remplacement complet (panneaux, structure, onduleur) avec uplift de capacite. Arret plus long."),
         ("Mix Rep+Rev", "Panneaux reparables repares ; non reparables remplaces a facon pour revenir a la puissance nominale."),
-        ("Defaut",      "Aucune intervention — degradation acceleree (dn) appliquee chaque annee."),
+        ("Defaut",      "Aucune intervention - degradation acceleree (dn) appliquee chaque annee."),
     ]
     for strat, defn in hyp:
         pdf.set_font("Helvetica", "B", 8)
@@ -361,7 +361,7 @@ def generate_pdf(params, r, alpha_pct):
     pdf.set_font("Helvetica", "", 7)
     pdf.set_text_color(100, 116, 139)
     for note in [
-        "O&M annuel exclu — considere identique pour toutes les strategies.",
+        "O&M annuel exclu - considere identique pour toutes les strategies.",
         "Post-OA : valorisation au tarif PPA / agregateur. Reparation & Revamping : +N1 ans. Repowering : +N2 ans.",
         "Le scenario Defaut beneficie egalement de N1 annees post-OA (a degradation acceleree).",
     ]:
