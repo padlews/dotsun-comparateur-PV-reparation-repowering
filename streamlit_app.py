@@ -244,7 +244,7 @@ st.markdown("<div style='margin-bottom:10px'></div>", unsafe_allow_html=True)
 
 # ── Best strategy banner ───────────────────────────────────────────────────────
 _best_label = {"defaut": "Défaut", "rep": "Réparation", "rev": "Revamping",
-               "repow": "Repowering", "mix": "Mix Réparation + Remplacement à façon"}
+               "repow": "Repowering", "mix": "Mix Réparation + Remplacement panneaux à façon"}
 _best_color = {"defaut": "#374151", "rep": "#166534", "rev": "#1e3a5f",
                "repow": "#b91c1c", "mix": "#166534"}
 _best_s = max(["defaut","rep","rev","repow","mix"], key=lambda s: r["cfTotal"][s])
