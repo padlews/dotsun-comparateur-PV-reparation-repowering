@@ -260,15 +260,25 @@ TH = {
     "mix":    ("#92400e", "Mix Rép+Rev",f"{alpha_pct}% + {100-alpha_pct}%"),
 }
 
+_DOTSUN_BADGE = (
+    '<span style="display:inline-block;font-size:9px;font-weight:700;'
+    'background:rgba(0,0,0,0.25);border-radius:3px;padding:1px 5px;'
+    'margin-left:5px;vertical-align:middle;letter-spacing:0">'
+    '<span style="color:#fff">DOT</span>'
+    '<span style="color:#f59e0b">Sun</span>'
+    '</span>'
+)
+
 def th_cell(s):
     _, title, sub = TH[s]
     if s == "mix":
         bg = "repeating-linear-gradient(135deg,#166534,#166534 5px,#1e3a5f 5px,#1e3a5f 10px)"
     else:
         bg = TH[s][0]
+    badge = _DOTSUN_BADGE if s in ("rep", "mix") else ""
     return (f'<th style="background:{bg};color:#fff;padding:10px 14px;'
             f'text-align:center;font-size:12px;font-weight:600;white-space:nowrap">'
-            f'{title}<br><small style="font-weight:400;opacity:.85">{sub}</small></th>')
+            f'{title}{badge}<br><small style="font-weight:400;opacity:.85">{sub}</small></th>')
 
 def td_c(content, bg=""):
     sty = f"padding:8px 14px;text-align:center;border-bottom:1px solid #f1f5f9;{('background:'+bg+';') if bg else ''}"
