@@ -352,20 +352,23 @@ def generate_pdf(params, r, alpha_pct):
     for strat, defn in hyp:
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_text_color(15, 23, 42)
-        pdf.cell(32, 5, strat + " :")
+        pdf.set_x(pdf.l_margin)
+        pdf.cell(0, 5, strat + " :", ln=True)
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(71, 85, 105)
-        pdf.multi_cell(0, 5, defn)
+        pdf.set_x(pdf.l_margin)
+        pdf.multi_cell(0, 5, "   " + defn)
+        pdf.ln(1)
 
     pdf.ln(2)
     pdf.set_font("Helvetica", "", 7)
     pdf.set_text_color(100, 116, 139)
     for note in [
-        "O&M annuel exclu - considere identique pour toutes les strategies.",
-        "Post-OA : valorisation au tarif PPA / agregateur. Reparation & Revamping : +N1 ans. Repowering : +N2 ans.",
-        "Le scenario Defaut beneficie egalement de N1 annees post-OA (a degradation acceleree).",
+        "- O&M annuel exclu - considere identique pour toutes les strategies.",
+        "- Post-OA : valorisation au tarif PPA. Reparation & Revamping : +N1 ans. Repowering : +N2 ans.",
+        "- Le scenario Defaut beneficie egalement de N1 annees post-OA (a degradation acceleree).",
     ]:
-        pdf.cell(5, 4, "-")
+        pdf.set_x(pdf.l_margin)
         pdf.multi_cell(0, 4, note)
 
     return bytes(pdf.output())
