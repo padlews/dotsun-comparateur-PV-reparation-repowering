@@ -130,6 +130,237 @@ def fp(n):
     return f"{'+'if n >= 0 else ''}{n*100:.1f} %"
 
 
+# ── PDF generation ────────────────────────────────────────────────────────────
+def generate_pdf(params, r, alpha_pct):
+    from fpdf import FPDF
+    from datetime import date
+
+    DISCLAIMER = (
+        "Ce document est fourni a titre informatif uniquement et ne constitue pas un conseil "
+        "en investissement. Les projections financieres reposent sur des hypotheses de "
+        "modelisation et ne garantissent pas les resultats futurs. DOTSun SAS decline toute "
+        "responsabilite quant a l'utilisation de ces informations a des fins decisionnelles. "
+        "Les donnees presentees sont strictement confidentielles."
+    )
+
+    STRAT_ORDER  = ["defaut", "repow", "rep", "rev", "mix"]
+    STRAT_LABELS = {"defaut": "Defaut", "repow": "Repowering",
+                    "rep": "Reparation", "rev": "Revamping", "mix": "Mix Rep+Rev"}
+    STRAT_RGB    = {"defaut": (55,65,81), "repow": (185,28,28),
+                    "rep": (22,101,52),   "rev": (30,58,95),  "mix": (22,101,52)}
+
+    class PDF(FPDF):
+        def header(self):
+            # DOTSun logo
+            self.set_font("Helvetica", "B", 13)
+            self.set_text_color(30, 41, 59)
+            w = self.get_string_width("DOT")
+            self.cell(w, 8, "DOT")
+            self.set_text_color(245, 158, 11)
+            self.cell(self.get_string_width("Sun"), 8, "Sun")
+            self.set_font("Helvetica", "", 8)
+            self.set_text_color(100, 116, 139)
+            self.cell(0, 8,
+                "   Comparateur de Strategie de renovation de Parc PV"
+                " — Analyse du revenu cumule net de CAPEX", ln=True)
+            self.set_draw_color(203, 213, 225)
+            self.line(10, self.get_y(), 200, self.get_y())
+            self.ln(3)
+            self.set_text_color(0, 0, 0)
+
+        def footer(self):
+            self.set_y(-22)
+            self.set_draw_color(203, 213, 225)
+            self.line(10, self.get_y(), 200, self.get_y())
+            self.ln(1)
+            self.set_font("Helvetica", "B", 8)
+            self.set_text_color(30, 41, 59)
+            self.cell(self.get_string_width("DOT"), 5, "DOT")
+            self.set_text_color(245, 158, 11)
+            self.cell(self.get_string_width("Sun"), 5, "Sun")
+            self.set_font("Helvetica", "", 7)
+            self.set_text_color(100, 116, 139)
+            self.cell(0, 5,
+                f"   Rapport genere le {date.today().strftime('%d/%m/%Y')}"
+                f"   |   Page {self.page_no()}", ln=True)
+            self.set_font("Helvetica", "I", 6)
+            self.set_text_color(148, 163, 184)
+            self.multi_cell(0, 3, DISCLAIMER)
+
+    pdf = PDF()
+    pdf.set_auto_page_break(auto=True, margin=38)
+    pdf.add_page()
+
+    # ── Title & best strategy ──
+    pdf.set_font("Helvetica", "B", 15)
+    pdf.set_text_color(15, 23, 42)
+    pdf.cell(0, 9, "Rapport d'Analyse — Strategies de Renovation PV", ln=True)
+    pdf.ln(1)
+
+    best_lbl = {"defaut": "Defaut", "rep": "Reparation", "rev": "Revamping",
+                "repow": "Repowering", "mix": "Mix Reparation + Remplacement panneaux a facon"}
+    best_s_pdf = max(["defaut","rep","rev","repow","mix"], key=lambda s: r["cfTotal"][s])
+    d_best = r["delta"][best_s_pdf]
+    d_txt  = f"+{d_best/1e6:.2f} Me vs Defaut" if best_s_pdf != "defaut" else "aucune intervention recommandee"
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_fill_color(240, 253, 244)
+    pdf.set_text_color(22, 163, 74)
+    pdf.cell(0, 7, f"Meilleure strategie : {best_lbl[best_s_pdf]}  —  {d_txt}",
+             fill=True, ln=True)
+    pdf.ln(4)
+
+    # ── Parameters ──
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(15, 23, 42)
+    pdf.cell(0, 7, "Parametres de calcul", ln=True)
+    pdf.set_draw_color(203, 213, 225)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(3)
+
+    param_rows = [
+        ("Nombre de panneaux (n)",            f"{int(params['n']):,}"),
+        ("Puissance/panneau Pm (Wc)",          f"{params['Pm']:.0f}"),
+        ("Puissance centrale (kWc)",           f"{r['Pcentrale']:,.0f}"),
+        ("Productible H (kWh/kWc/an)",         f"{params['H']:.0f}"),
+        ("Age centrale Y (ans)",               f"{params['Y']:.0f}"),
+        ("Degradation normale d (%/an)",       f"{params['d']:.2f}%"),
+        ("Degradation acceleree dn (%/an)",    f"{params['dn']:.1f}%"),
+        ("Efficacite actuelle I2",             f"{r['I2']*100:.2f}%"),
+        ("Annees restantes OA N",              f"{int(params['N'])}"),
+        ("Tarif EDF OA p (EUR/kWh)",           f"{params['tarif']:.4f}"),
+        ("Tarif PPA post-OA (EUR/kWh)",        f"{params['PPA']:.3f}"),
+        ("Extension Rep/Rev N1 (ans)",         f"{int(params['N1'])}"),
+        ("Extension Repowering N2 (ans)",      f"{int(params['N2'])}"),
+        ("Cout reparation Crep (EUR/p.)",      f"{params['Crep']:.0f}"),
+        ("Demontage/Remontage Cdm (EUR/p.)",   f"{params['Cdm']:.0f}"),
+        ("Demantelement Cde (EUR/p.)",         f"{params['Cde']:.0f}"),
+        ("Panneau a facon Cfac (EUR/Wc)",      f"{params['Cfac']:.2f}"),
+        ("EPC Repowering Crev (EUR/Wc)",       f"{params['Crev']:.2f}"),
+        ("Arret Rep/Rev Down_rep (mois)",      f"{params['Down_rep']:.1f}"),
+        ("Arret Repowering Down_repow (mois)", f"{params['Down_repow']:.0f}"),
+        ("Uplift repowering u (%)",            f"{params['u']:.0f}%"),
+        ("Part reparable alpha_rep (%)",       f"{params['alpha_pct']:.0f}%  (rev: {100-params['alpha_pct']:.0f}%)"),
+    ]
+
+    lbl_w, val_w, gap = 62, 24, 4
+    half = (len(param_rows) + 1) // 2
+    pdf.set_font("Helvetica", "", 8)
+    for i in range(half):
+        bg = (248, 250, 252) if i % 2 == 0 else (255, 255, 255)
+        pdf.set_fill_color(*bg)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(lbl_w, 5.5, param_rows[i][0], fill=True)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(15, 23, 42)
+        pdf.cell(val_w, 5.5, param_rows[i][1], fill=True)
+        j = i + half
+        if j < len(param_rows):
+            pdf.set_font("Helvetica", "", 8)
+            pdf.set_text_color(100, 116, 139)
+            pdf.cell(gap, 5.5, "")
+            pdf.cell(lbl_w, 5.5, param_rows[j][0], fill=True)
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.set_text_color(15, 23, 42)
+            pdf.cell(val_w, 5.5, param_rows[j][1], fill=True)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.ln()
+    pdf.ln(5)
+
+    # ── Results table ──
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(15, 23, 42)
+    pdf.cell(0, 7, "Resultats comparatifs", ln=True)
+    pdf.set_draw_color(203, 213, 225)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(3)
+
+    col_lbl = 48
+    col_val = (190 - col_lbl) / 5
+
+    # Header row
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_fill_color(15, 23, 42)
+    pdf.cell(col_lbl, 7, "Indicateur", fill=True, border=0)
+    for s in STRAT_ORDER:
+        pdf.set_fill_color(*STRAT_RGB[s])
+        pdf.cell(col_val, 7, STRAT_LABELS[s], fill=True, border=0, align="C")
+    pdf.ln()
+
+    # Data rows
+    pow_vals = [
+        f"{round(r['Pcentrale'] * r['I2'])} kWc",
+        f"{round(r['Pcentrale'] * (1+r['u']))} kWc",
+        f"{round(r['Pcentrale'] * r['I2'])} kWc",
+        f"{round(r['Pcentrale'])} kWc",
+        f"{round(r['Pcentrale'])} kWc",
+    ]
+    ext_vals = [
+        f"+{int(r['ext'][s])} ans" if r['ext'][s] > 0 else "—"
+        for s in STRAT_ORDER
+    ]
+    tbl_rows = [
+        ("Puissance apres intervention",   pow_vals),
+        ("Extension post-OA",              ext_vals),
+        ("CAPEX (EUR)",                    [fe(r["capex"][s])   for s in STRAT_ORDER]),
+        ("Revenus cumules EDF OA (EUR)",   [fe(r["revOA"][s])   for s in STRAT_ORDER]),
+        ("Cash Flow EDF OA (EUR)",         [fe(r["cfOA"][s])    for s in STRAT_ORDER]),
+        ("Revenus cumules post-OA (EUR)",  [fe(r["revPost"][s]) for s in STRAT_ORDER]),
+        ("Cash Flow Total (EUR)",          [fe(r["cfTotal"][s]) for s in STRAT_ORDER]),
+        ("Delta CCF vs Defaut (EUR)",      ["—"] + [fe(r["delta"][s]) for s in ["repow","rep","rev","mix"]]),
+        ("% vs Defaut",                    ["—"] + [fp(r["pct"][s])   for s in ["repow","rep","rev","mix"]]),
+    ]
+
+    for i, (lbl, vals) in enumerate(tbl_rows):
+        bg = (248, 250, 252) if i % 2 == 0 else (255, 255, 255)
+        pdf.set_fill_color(*bg)
+        pdf.set_font("Helvetica", "B" if lbl.startswith("Cash Flow Total") else "", 7)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(col_lbl, 6, lbl, fill=True, border=0)
+        pdf.set_text_color(15, 23, 42)
+        for v in vals:
+            pdf.cell(col_val, 6, v, fill=True, border=0, align="C")
+        pdf.ln()
+
+    pdf.ln(6)
+
+    # ── Hypotheses ──
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(15, 23, 42)
+    pdf.cell(0, 7, "Hypotheses & Definitions", ln=True)
+    pdf.set_draw_color(203, 213, 225)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(3)
+
+    hyp = [
+        ("Reparation",  "Restitution de l'integrite electrique du panneau — ne remet pas a zero la degradation naturelle des cellules."),
+        ("Revamping",   "Remplacement par des panneaux a facon (format & caracteristiques similaires) — panneaux neufs."),
+        ("Repowering",  "Remplacement complet (panneaux, structure, onduleur) avec uplift de capacite. Arret plus long."),
+        ("Mix Rep+Rev", "Panneaux reparables repares ; non reparables remplaces a facon pour revenir a la puissance nominale."),
+        ("Defaut",      "Aucune intervention — degradation acceleree (dn) appliquee chaque annee."),
+    ]
+    for strat, defn in hyp:
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(15, 23, 42)
+        pdf.cell(32, 5, strat + " :")
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(71, 85, 105)
+        pdf.multi_cell(0, 5, defn)
+
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "", 7)
+    pdf.set_text_color(100, 116, 139)
+    for note in [
+        "O&M annuel exclu — considere identique pour toutes les strategies.",
+        "Post-OA : valorisation au tarif PPA / agregateur. Reparation & Revamping : +N1 ans. Repowering : +N2 ans.",
+        "Le scenario Defaut beneficie egalement de N1 annees post-OA (a degradation acceleree).",
+    ]:
+        pdf.cell(5, 4, "-")
+        pdf.multi_cell(0, 4, note)
+
+    return bytes(pdf.output())
+
+
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown(
     """
@@ -386,6 +617,17 @@ table_html = f"""
 </div>
 """
 st.markdown(table_html, unsafe_allow_html=True)
+
+# ── PDF export ────────────────────────────────────────────────────────────────
+from datetime import date as _date
+pdf_bytes = generate_pdf(params, r, alpha_pct)
+st.download_button(
+    label="📄 Télécharger le rapport PDF",
+    data=pdf_bytes,
+    file_name=f"DOTSun_Rapport_PV_{_date.today().strftime('%Y%m%d')}.pdf",
+    mime="application/pdf",
+    use_container_width=False,
+)
 
 # ── Notes ─────────────────────────────────────────────────────────────────────
 with st.expander("📋 Hypothèses & Définitions"):
