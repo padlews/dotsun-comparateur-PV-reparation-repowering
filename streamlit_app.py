@@ -154,7 +154,7 @@ with st.sidebar:
     st.markdown(
         '<div style="display:inline-block;background:#1e293b;border-radius:6px;'
         'padding:4px 12px;margin-bottom:10px">'
-        '<span style="font-size:20px;font-weight:900;letter-spacing:-0.5px">'
+        '<span style="font-size:32px;font-weight:900;letter-spacing:-0.5px">'
         '<span style="color:#fff">DOT</span>'
         '<span style="color:#f59e0b">Sun</span>'
         '</span>'
