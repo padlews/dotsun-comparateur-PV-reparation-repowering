@@ -378,7 +378,7 @@ def generate_pdf(params, r, alpha_pct):
 
     pdf.ln(4)
 
-    # ── Hypothèses & Définitions (compact — pas de saut de ligne entre entrées) ──
+    # ── Hypothèses & Définitions ──
     pdf._f("B", 11)
     pdf.set_text_color(15, 23, 42)
     pdf.cell(0, 7, "Hypothèses & Définitions", ln=True)
@@ -386,31 +386,55 @@ def generate_pdf(params, r, alpha_pct):
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(2)
 
-    hyp = [
-        ("Réparation",   "Restitution de l'intégrité électrique du panneau - ne remet pas à zéro la dégradation naturelle des cellules."),
-        ("Revamping",    "Remplacement par des panneaux à façon (format & caractéristiques similaires) - panneaux neufs."),
-        ("Repowering",   "Remplacement complet (panneaux, structure, onduleur) avec uplift de capacité. Arrêt plus long."),
-        ("Mix Rép+Rev",  "Panneaux réparables réparés ; non réparables remplacés à façon pour revenir à la puissance nominale."),
-        ("Défaut",       "Aucune intervention - dégradation accélérée (dn) appliquée chaque année."),
-    ]
-    lbl_h, txt_w = 28, 190 - 28
-    for strat, defn in hyp:
-        y0 = pdf.get_y()
-        pdf._f("B", 7.5)
-        pdf.set_text_color(15, 23, 42)
-        pdf.cell(lbl_h, 5, strat + " :", border=0)
-        pdf._f("", 7.5)
-        pdf.set_text_color(71, 85, 105)
-        pdf.multi_cell(txt_w, 5, defn)
-        # ensure y advances at least one line if multi_cell didn't
-        if pdf.get_y() == y0:
-            pdf.ln(5)
+    col_s, col_d = 32, 158   # Stratégie | Définition (total = 190mm)
 
-    pdf.ln(2)
+    # En-tête du tableau
+    pdf._f("B", 8)
+    pdf.set_fill_color(15, 23, 42)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(col_s, 7, "Stratégie",  fill=True, border=0)
+    pdf.cell(col_d, 7, "Définition", fill=True, border=0)
+    pdf.ln()
+
+    hyp = [
+        ("Réparation",
+         "Restitution de l'intégrité électrique du panneau — ne remet pas à zéro la dégradation naturelle des cellules."),
+        ("Revamping",
+         "Remplacement par des panneaux «à façon» (format & caractéristiques similaires) — panneaux neufs."),
+        ("Repowering",
+         "Remplacement complet (panneaux, structure, onduleur…) avec uplift de capacité. Arrêt plus long."),
+        ("Mix Rép+Rev",
+         "Panneaux réparables → réparés ; non réparables → remplacés à façon pour revenir à la puissance nominale."),
+        ("Défaut",
+         "Aucune intervention — dégradation accélérée (dn) appliquée chaque année."),
+    ]
+
+    for i, (strat, defn) in enumerate(hyp):
+        bg = (248, 250, 252) if i % 2 == 0 else (255, 255, 255)
+        pdf.set_fill_color(*bg)
+        x0, y0 = pdf.l_margin, pdf.get_y()
+
+        # Dessiner la définition en premier pour mesurer la hauteur
+        pdf.set_xy(x0 + col_s, y0)
+        pdf._f("", 8)
+        pdf.set_text_color(71, 85, 105)
+        pdf.multi_cell(col_d, 5, defn, fill=True, border=0)
+        y1 = pdf.get_y()
+        row_h = max(y1 - y0, 5)
+
+        # Revenir dessiner la cellule stratégie avec la même hauteur
+        pdf.set_xy(x0, y0)
+        pdf._f("B", 8)
+        pdf.set_text_color(15, 23, 42)
+        pdf.set_fill_color(*bg)
+        pdf.cell(col_s, row_h, strat, fill=True, border=0, align="L")
+        pdf.set_y(y1)
+
+    pdf.ln(3)
     pdf._f("", 7)
     pdf.set_text_color(100, 116, 139)
     for note in [
-        "- O&M annuel exclu - considéré identique pour toutes les stratégies.",
+        "- O&M annuel exclu — considéré identique pour toutes les stratégies.",
         "- Post-OA : valorisation au tarif PPA. Réparation & Revamping : +N1 ans. Repowering : +N2 ans.",
         "- Le scénario Défaut bénéficie également de N1 années post-OA (à dégradation accélérée).",
     ]:
