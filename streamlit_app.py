@@ -299,7 +299,7 @@ def td_l(label, bold=False):
     return f'<td style="{sty}">{"<strong>" if bold else ""}{label}{"</strong>" if bold else ""}</td>'
 
 def delta_html(v, s):
-    col = TH[s][0] if v > 0 else ("#dc2626" if v < 0 else "#64748b")
+    col = "#16a34a" if v > 0 else ("#dc2626" if v < 0 else "#64748b")
     return f'<span style="color:{col};font-weight:700">{fe(v)}</span>'
 
 def pct_html(v):
