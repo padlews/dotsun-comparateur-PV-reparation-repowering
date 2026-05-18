@@ -487,12 +487,12 @@ with st.sidebar:
 
     # ── Centrale
     st.markdown("#### Centrale solaire")
-    n   = st.number_input("n — Nombre de panneaux",     min_value=1.0,   step=100.0, key="p_n")
-    Pm  = st.number_input("Pm — Puissance/panneau (Wc)",min_value=1.0,   step=5.0,   key="p_Pm")
+    n   = st.number_input("n — Nombre de panneaux",     min_value=1.0,   step=100.0, format="%.0f", key="p_n")
+    Pm  = st.number_input("Pm — Puissance/panneau (Wc)",min_value=1.0,   step=5.0,   format="%.0f", key="p_Pm")
     Pcentrale_disp = n * Pm / 1000.0
     I2_preview     = (1.0 - st.session_state.get("p_d", 0.4) / 100.0) ** st.session_state.get("p_Y", 10.0)
     st.info(f"**Pcentrale** = {Pcentrale_disp:,.0f} kWc  ·  **I₂** = {I2_preview*100:.2f} %")
-    H   = st.number_input("H — Productible (kWh/kWc/an)", min_value=500.0, max_value=2500.0, step=10.0, key="p_H")
+    H   = st.number_input("H — Productible (kWh/kWc/an)", min_value=500.0, max_value=2500.0, step=10.0, format="%.0f", key="p_H")
     Y   = st.number_input("Y — Âge de la centrale (ans)", min_value=0.0,   max_value=30.0,  step=1.0,  key="p_Y")
 
     # ── Dégradation
