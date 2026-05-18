@@ -135,6 +135,17 @@ def generate_pdf(params, r, alpha_pct):
     from fpdf import FPDF
     from datetime import date
 
+    # ASCII-only formatters (Helvetica = Latin-1, no euro sign, no em-dash)
+    def _fe(n):
+        a = abs(round(n))
+        s = "-" if n < 0 else ""
+        if a >= 1_000_000: return f"{s}{a/1e6:.2f} MEUR"
+        if a >= 1_000:     return f"{s}{a/1e3:.1f} kEUR"
+        return f"{s}{a} EUR"
+
+    def _fp(n):
+        return f"{'+'if n >= 0 else ''}{n*100:.1f}%"
+
     DISCLAIMER = (
         "Ce document est fourni a titre informatif uniquement et ne constitue pas un conseil "
         "en investissement. Les projections financieres reposent sur des hypotheses de "
@@ -151,7 +162,6 @@ def generate_pdf(params, r, alpha_pct):
 
     class PDF(FPDF):
         def header(self):
-            # DOTSun logo
             self.set_font("Helvetica", "B", 13)
             self.set_text_color(30, 41, 59)
             w = self.get_string_width("DOT")
@@ -162,7 +172,7 @@ def generate_pdf(params, r, alpha_pct):
             self.set_text_color(100, 116, 139)
             self.cell(0, 8,
                 "   Comparateur de Strategie de renovation de Parc PV"
-                " — Analyse du revenu cumule net de CAPEX", ln=True)
+                " - Analyse du revenu cumule net de CAPEX", ln=True)
             self.set_draw_color(203, 213, 225)
             self.line(10, self.get_y(), 200, self.get_y())
             self.ln(3)
@@ -201,11 +211,11 @@ def generate_pdf(params, r, alpha_pct):
                 "repow": "Repowering", "mix": "Mix Reparation + Remplacement panneaux a facon"}
     best_s_pdf = max(["defaut","rep","rev","repow","mix"], key=lambda s: r["cfTotal"][s])
     d_best = r["delta"][best_s_pdf]
-    d_txt  = f"+{d_best/1e6:.2f} Me vs Defaut" if best_s_pdf != "defaut" else "aucune intervention recommandee"
+    d_txt  = (_fe(d_best) + " vs Defaut") if best_s_pdf != "defaut" else "aucune intervention recommandee"
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_fill_color(240, 253, 244)
     pdf.set_text_color(22, 163, 74)
-    pdf.cell(0, 7, f"Meilleure strategie : {best_lbl[best_s_pdf]}  —  {d_txt}",
+    pdf.cell(0, 7, f"Meilleure strategie : {best_lbl[best_s_pdf]}  -  {d_txt}",
              fill=True, ln=True)
     pdf.ln(4)
 
@@ -296,19 +306,19 @@ def generate_pdf(params, r, alpha_pct):
         f"{round(r['Pcentrale'])} kWc",
     ]
     ext_vals = [
-        f"+{int(r['ext'][s])} ans" if r['ext'][s] > 0 else "—"
+        f"+{int(r['ext'][s])} ans" if r['ext'][s] > 0 else "-"
         for s in STRAT_ORDER
     ]
     tbl_rows = [
         ("Puissance apres intervention",   pow_vals),
         ("Extension post-OA",              ext_vals),
-        ("CAPEX (EUR)",                    [fe(r["capex"][s])   for s in STRAT_ORDER]),
-        ("Revenus cumules EDF OA (EUR)",   [fe(r["revOA"][s])   for s in STRAT_ORDER]),
-        ("Cash Flow EDF OA (EUR)",         [fe(r["cfOA"][s])    for s in STRAT_ORDER]),
-        ("Revenus cumules post-OA (EUR)",  [fe(r["revPost"][s]) for s in STRAT_ORDER]),
-        ("Cash Flow Total (EUR)",          [fe(r["cfTotal"][s]) for s in STRAT_ORDER]),
-        ("Delta CCF vs Defaut (EUR)",      ["—"] + [fe(r["delta"][s]) for s in ["repow","rep","rev","mix"]]),
-        ("% vs Defaut",                    ["—"] + [fp(r["pct"][s])   for s in ["repow","rep","rev","mix"]]),
+        ("CAPEX (EUR)",                    [_fe(r["capex"][s])   for s in STRAT_ORDER]),
+        ("Revenus cumules EDF OA (EUR)",   [_fe(r["revOA"][s])   for s in STRAT_ORDER]),
+        ("Cash Flow EDF OA (EUR)",         [_fe(r["cfOA"][s])    for s in STRAT_ORDER]),
+        ("Revenus cumules post-OA (EUR)",  [_fe(r["revPost"][s]) for s in STRAT_ORDER]),
+        ("Cash Flow Total (EUR)",          [_fe(r["cfTotal"][s]) for s in STRAT_ORDER]),
+        ("Delta CCF vs Defaut (EUR)",      ["-"] + [_fe(r["delta"][s]) for s in ["repow","rep","rev","mix"]]),
+        ("% vs Defaut",                    ["-"] + [_fp(r["pct"][s])   for s in ["repow","rep","rev","mix"]]),
     ]
 
     for i, (lbl, vals) in enumerate(tbl_rows):
