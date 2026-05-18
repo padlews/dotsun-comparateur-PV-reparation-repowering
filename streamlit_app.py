@@ -136,16 +136,26 @@ def generate_pdf(params, r, alpha_pct):
     from datetime import date
     import os
 
-    # DejaVu fonts bundled with fpdf2 — full Unicode (€, accents, à façon…)
-    _pkg  = os.path.dirname(__import__("fpdf").__file__)
-    _fdir = os.path.join(_pkg, "fonts")
-    _REG  = os.path.join(_fdir, "DejaVuSans.ttf")
-    _BOLD = os.path.join(_fdir, "DejaVuSans-Bold.ttf")
-    # Fallback: some fpdf2 builds use Condensed variant
-    if not os.path.exists(_BOLD):
-        _BOLD = os.path.join(_fdir, "DejaVuSansCondensed-Bold.ttf")
-    if not os.path.exists(_REG):
-        _REG = os.path.join(_fdir, "DejaVuSansCondensed.ttf")
+    def _find_font(name):
+        candidates = [
+            f"/usr/share/fonts/truetype/dejavu/{name}",           # Ubuntu / Streamlit Cloud
+            f"/usr/share/fonts/dejavu/{name}",                    # some Linux distros
+            os.path.join(os.path.dirname(__import__("fpdf").__file__), "fonts", name),
+            os.path.join("fonts", name),                          # local repo subfolder
+        ]
+        for p in candidates:
+            if os.path.exists(p):
+                return p
+        return None
+
+    _REG  = _find_font("DejaVuSans.ttf")
+    _BOLD = _find_font("DejaVuSans-Bold.ttf")
+    if _BOLD is None:
+        _BOLD = _find_font("DejaVuSansCondensed-Bold.ttf")
+    if _REG is None:
+        raise FileNotFoundError(
+            "DejaVuSans.ttf not found. Add 'fonts-dejavu-core' to packages.txt."
+        )
 
     def _fe(n, signed=False):
         a = abs(round(n))
