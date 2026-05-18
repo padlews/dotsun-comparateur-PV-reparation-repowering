@@ -20,8 +20,8 @@ PRESETS = {
                N=10.0, tarif=0.0818, PPA=0.03, N1=5.0, N2=10.0,
                Crep=25.0, Cdm=4.0, Cde=15.0, Cfac=0.25, Crev=0.5,
                Down_rep=1.0, Down_repow=8.0, u=10.0, alpha_pct=85.0),
-    "s2": dict(n=4304, Pm=195.0, H=1180.0, Y=14.0, d=0.45, dn=6.0,
-               N=6.0, tarif=0.75, PPA=0.03, N1=0.0, N2=15.0,
+    "s2": dict(n=4304, Pm=195.0, H=1180.0, Y=14.0, d=0.45, dn=8.0,
+               N=6.0, tarif=0.75, PPA=0.03, N1=5.0, N2=15.0,
                Crep=30.0, Cdm=5.0, Cde=18.0, Cfac=0.30, Crev=0.70,
                Down_rep=1.0, Down_repow=8.0, u=10.0, alpha_pct=80.0),
 }
@@ -151,6 +151,15 @@ st.markdown(
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
+    st.markdown(
+        '<div style="margin-bottom:8px">'
+        '<span style="font-size:20px;font-weight:900;letter-spacing:-0.5px">'
+        '<span style="color:#1e293b">DOT</span>'
+        '<span style="color:#f59e0b">Sun</span>'
+        '</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
     st.markdown("### ⚙️ Paramètres")
 
     c1, c2 = st.columns(2)
