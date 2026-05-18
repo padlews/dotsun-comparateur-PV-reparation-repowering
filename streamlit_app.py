@@ -232,9 +232,28 @@ k4.metric("Revenu annuel base",        f"{prod_base*params['tarif']/1000:.0f} k�
 
 st.markdown("<div style='margin-bottom:10px'></div>", unsafe_allow_html=True)
 
+# ── Best strategy banner ───────────────────────────────────────────────────────
+_best_label = {"defaut": "Défaut", "rep": "Réparation", "rev": "Revamping",
+               "repow": "Repowering", "mix": "Mix Réparation + Remplacement à façon"}
+_best_color = {"defaut": "#374151", "rep": "#166534", "rev": "#1e3a5f",
+               "repow": "#b91c1c", "mix": "#166534"}
+_best_s = max(["defaut","rep","rev","repow","mix"], key=lambda s: r["cfTotal"][s])
+_best_delta = r["delta"][_best_s]
+_delta_txt  = f"+{_best_delta/1e6:.2f} M€ vs Défaut" if _best_s != "defaut" else "aucune intervention recommandée"
+st.markdown(
+    f"""<div style="background:#f0fdf4;border-left:4px solid {_best_color[_best_s]};
+                    border-radius:6px;padding:10px 16px;margin-bottom:14px;
+                    display:flex;align-items:center;gap:12px">
+        <span style="font-size:13px;color:#64748b;font-weight:500">Meilleure stratégie :</span>
+        <span style="font-size:14px;font-weight:700;color:{_best_color[_best_s]}">{_best_label[_best_s]}</span>
+        <span style="font-size:12px;color:#64748b">— {_delta_txt}</span>
+    </div>""",
+    unsafe_allow_html=True,
+)
+
 # ── Comparison table ──────────────────────────────────────────────────────────
 TH = {
-    "defaut": ("#374151", "Défaut",     "Inaction"),
+    "defaut": ("#374151", "Défaut",     "En l'état"),
     "rep":    ("#166534", "Réparation", "100 % panneaux"),
     "rev":    ("#1e3a5f", "Revamping",  "100 % panneaux"),
     "repow":  ("#b91c1c", "Repowering", f"+{int(params['u'])} % capacité"),
