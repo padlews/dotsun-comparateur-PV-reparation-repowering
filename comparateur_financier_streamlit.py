@@ -196,7 +196,8 @@ def _tdl(label, bg='#f8fafc', color='#475569', bold=False, section=False):
     col = '#fff' if section else color
     bgs = '#1e293b' if section else bg
     return (f'<td style="padding:4px 8px;text-align:left;background:{bgs};'
-            f'border-bottom:1px solid #e2e8f0;min-width:180px;position:sticky;left:0;z-index:1">'
+            f'border-bottom:1px solid #e2e8f0;width:210px;min-width:210px;max-width:210px;'
+            f'position:sticky;left:0;z-index:1">'
             f'<span style="font-size:13px;color:{col};{bw}">{label}</span></td>')
 
 def _th(label, bg='#0f172a', align='center'):
@@ -233,7 +234,10 @@ def render_scenario_table(s, sc, N):
         return f'<tr>{_tdl(label,bg=bg if bg else "#f8fafc",bold=bold,section=section)}{cells}</tr>'
 
     h = f'<div style="overflow-x:auto;margin-bottom:16px"><table style="border-collapse:collapse;width:100%;background:#fff">'
-    h += f'<thead><tr>{_th("Indicateur",bg=color,align="left")}{yr_ths}</tr></thead><tbody>'
+    h += (f'<thead><tr>'
+          f'<th style="background:{color};color:#fff;padding:5px 8px;text-align:left;font-size:12px;'
+          f'font-weight:700;width:210px;min-width:210px;max-width:210px;white-space:nowrap">Indicateur</th>'
+          f'{yr_ths}</tr></thead><tbody>')
 
     # Loan
     if sc['debt'] > 0:
@@ -297,7 +301,8 @@ def render_synthesis(results):
         return h + '</tr>'
 
     h = '<div style="overflow-x:auto;margin-bottom:20px"><table style="border-collapse:collapse;background:#fff;width:100%"><thead><tr>'
-    h += _th("Indicateur", align='left')
+    h += ('<th style="background:#0f172a;color:#fff;padding:5px 8px;text-align:left;font-size:12px;'
+          'font-weight:700;width:210px;min-width:210px;max-width:210px;white-space:nowrap">Indicateur</th>')
     for s in STRATS:
         h += f'<th style="background:{COLORS[s]};color:#fff;padding:6px 10px;text-align:center;font-size:11px;min-width:110px">{LABELS[s]}</th>'
     h += '</tr></thead><tbody>'
