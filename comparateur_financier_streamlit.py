@@ -250,9 +250,9 @@ def render_scenario_table(s, sc, N):
     # Revenue
     h += f'<tr>{_tdl("── Revenus",section=True)}{"".join(_td("",bg="#1e293b") for _ in rows)}</tr>'
     h += f'<tr>{_tdl("Tarif (€/kWh)")}'
-    h += ''.join(_td(frate(r['tarif_k']), color='#64748b') for r in rows) + '</tr>'
+    h += ''.join(_td(f"{r['tarif_k']:.4f}", color='#64748b') for r in rows) + '</tr>'
     h += f'<tr>{_tdl("Production (MWh/an)")}'
-    h += ''.join(_td(fmwh(r['prod']), color='#1e293b') for r in rows) + '</tr>'
+    h += ''.join(_td(f"{r['prod']/1000:.0f}", color='#1e293b') for r in rows) + '</tr>'
     h += data_row("Chiffre d'affaires", lambda r: r['CA'], bg='#f0fdf4', bold=True,
                   col_fn=lambda _: '#166534')
 
