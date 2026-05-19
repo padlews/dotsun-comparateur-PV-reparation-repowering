@@ -185,11 +185,11 @@ STRATS  = ['defaut','repow','rep','rev','mix']
 COLORS  = {'defaut':'#374151','repow':'#b91c1c','rep':'#166534','rev':'#1e3a5f','mix':'#166534'}
 LABELS  = {'defaut':'Défaut','repow':'Repowering','rep':'Réparation','rev':'Revamping','mix':'Mix Rép+Rev'}
 
-def _td(val, color='#1e293b', bg='', bold=False, align='right'):
+def _td(val, color='#1e293b', bg='', bold=False, align='center'):
     bgs = f"background:{bg};" if bg else ''
     bw  = 'font-weight:700;' if bold else ''
     return (f'<td style="padding:4px 7px;text-align:{align};border-bottom:1px solid #f1f5f9;'
-            f'{bgs}"><span style="font-size:11px;color:{color};{bw}">{val}</span></td>')
+            f'{bgs}"><span style="font-size:13px;color:{color};{bw}">{val}</span></td>')
 
 def _tdl(label, bg='#f8fafc', color='#475569', bold=False, section=False):
     bw  = 'font-weight:700;' if bold or section else 'font-weight:500;'
@@ -197,11 +197,11 @@ def _tdl(label, bg='#f8fafc', color='#475569', bold=False, section=False):
     bgs = '#1e293b' if section else bg
     return (f'<td style="padding:4px 8px;text-align:left;background:{bgs};'
             f'border-bottom:1px solid #e2e8f0;min-width:180px;position:sticky;left:0;z-index:1">'
-            f'<span style="font-size:11px;color:{col};{bw}">{label}</span></td>')
+            f'<span style="font-size:13px;color:{col};{bw}">{label}</span></td>')
 
 def _th(label, bg='#0f172a', align='center'):
     return (f'<th style="background:{bg};color:#fff;padding:5px 7px;text-align:{align};'
-            f'font-size:10px;font-weight:700;white-space:nowrap">{label}</th>')
+            f'font-size:12px;font-weight:700;white-space:nowrap">{label}</th>')
 
 def val_color(x):
     if x is None: return '#64748b'
