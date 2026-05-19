@@ -208,7 +208,7 @@ def val_color(x):
     return '#166534' if x > 0 else ('#b91c1c' if x < 0 else '#64748b')
 
 def dscr_color(x):
-    if x is None: return '#64748b'
+    if x is None or not isinstance(x, (int, float)): return '#64748b'
     return '#166534' if x >= 1.2 else ('#64748b' if x >= 1.0 else '#b91c1c')
 
 def render_scenario_table(s, sc, N):
