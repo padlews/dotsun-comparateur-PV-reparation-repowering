@@ -845,7 +845,7 @@ def generate_pdf(p, fin, results, rc):
         lbl_off = bar_y - 3.5
 
         # Row 1 — Déf / Rép / Rev / Mix
-        mp._f("I",5); mp.set_text_color(100,116,139)
+        mp._f("",5); mp.set_text_color(100,116,139)
         mp.set_xy(gx+1, lbl_off); mp.cell(50,3.5,"Déf / Rép / Rev / Mix")
         bar(gx,    xYN-gx,      (34,197,94),
             f"EDF OA — {N_} ans restantes — {tarif_:.4f} €/kWh", bar_y)
@@ -854,7 +854,7 @@ def generate_pdf(p, fin, results, rc):
 
         # Row 2 — Repowering
         bar_y2=bar_y+bh+gap_b
-        mp._f("I",5); mp.set_text_color(100,116,139)
+        mp._f("",5); mp.set_text_color(100,116,139)
         mp.set_xy(gx+1, lbl_off+bh+gap_b); mp.cell(25,3.5,"Repowering")
         bar(gx,    xYN-gx,      (34,197,94),
             f"EDF OA — {N_} ans restantes — {tarif_:.4f} €/kWh", bar_y2)
