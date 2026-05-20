@@ -164,6 +164,42 @@ def run_all(p, fin):
     res['repow'] = calc_scenario('repow', p, fin, ref2)
     return res
 
+def compute_comparateur(p):
+    """Revenue-only comparison (no financial hypotheses) — mirrors streamlit_app.py compute()."""
+    N, N1, N2 = int(p['N']), int(p['N1']), int(p['N2'])
+    Pc, I2, d, dn, u = p['Pcentrale'], p['I2'], p['d_'], p['dn_'], p['u_']
+    tarif, PPA = float(p['tarif']), float(p['PPA'])
+    H = float(p['H'])
+    Down_rep, Down_repow = float(p['Down_rep']), float(p['Down_repow'])
+    capex = p['capex']
+    ext = {'defaut': N1, 'rep': N1, 'rev': N1, 'repow': N2, 'mix': N1}
+
+    def power(s, k):
+        if s == 'defaut': return Pc * I2 * (1-dn)**(k-1)
+        if s == 'rep':    return Pc * I2 * (1-d)**(k-1)
+        if s == 'rev':    return Pc * (1-d)**(k-1)
+        if s == 'repow':  return Pc * (1+u) * (1-d)**(k-1)
+        if s == 'mix':    return Pc * (1-d)**(k-1)
+
+    def dfactor(s, k):
+        if s == 'defaut': return 1.0
+        if s == 'repow':  return (1-Down_repow/12) if k==N else 1.0
+        return (1-Down_rep/12) if k==1 else 1.0
+
+    revOA, revPost, cfOA, cfTotal, delta, pct = {}, {}, {}, {}, {}, {}
+    for s in STRATS:
+        rOA   = sum(H * tarif * power(s, k) * dfactor(s, k) for k in range(1, N+1))
+        rPost = sum(H * PPA   * power(s, k)                  for k in range(N+1, N+ext[s]+1))
+        revOA[s]   = rOA
+        revPost[s] = rPost
+        cfOA[s]    = rOA - capex[s]
+        cfTotal[s] = cfOA[s] + rPost
+    for s in STRATS:
+        delta[s] = cfTotal[s] - cfTotal['defaut']
+        pct[s]   = delta[s] / cfTotal['defaut'] if cfTotal['defaut'] != 0 else 0.0
+    return dict(revOA=revOA, revPost=revPost, cfOA=cfOA, cfTotal=cfTotal,
+                delta=delta, pct=pct, ext=ext)
+
 # ── Formatters ────────────────────────────────────────────────────────────────
 def fe(x):
     if x is None or (isinstance(x, float) and math.isnan(x)): return '—'
@@ -335,8 +371,98 @@ def render_synthesis(results):
     h += '</tbody></table></div>'
     return h
 
+def render_comparateur_table(p, rc):
+    alpha_pct = int(p['alpha_pct'])
+    u_pct     = int(p['u'])
+    Pc, I2, u = p['Pcentrale'], p['I2'], p['u_']
+
+    TH_COMP = {
+        'defaut': ('#374151', 'Défaut',      'En l\'état'),
+        'rep':    ('#166534', 'Réparation',  '100 % panneaux'),
+        'rev':    ('#1e3a5f', 'Revamping',   '100 % panneaux'),
+        'repow':  ('#b91c1c', 'Repowering',  f'+{u_pct} % capacité'),
+        'mix':    ('#92400e', 'Mix Rép+Rev', f'{alpha_pct}% + {100-alpha_pct}%'),
+    }
+
+    def th_comp(s):
+        bg = ('repeating-linear-gradient(135deg,#166534,#166534 5px,#1e3a5f 5px,#1e3a5f 10px)'
+              if s == 'mix' else TH_COMP[s][0])
+        title, sub = TH_COMP[s][1], TH_COMP[s][2]
+        return (f'<th style="background:{bg};color:#fff;padding:10px 14px;text-align:center;'
+                f'font-size:12px;font-weight:600;white-space:nowrap">'
+                f'{title}<br><small style="font-weight:400;opacity:.85">{sub}</small></th>')
+
+    def vs(txt, color='#1e293b', bold=False):
+        bw = 'font-weight:700;' if bold else ''
+        return f'<span style="font-size:13px;color:{color};{bw}">{txt}</span>'
+
+    LBL_STYLE = ('padding:8px 14px;text-align:left;width:210px;min-width:210px;max-width:210px;'
+                 'border-bottom:1px solid #f1f5f9;background:#f8fafc')
+    VAL_STYLE = 'padding:8px 14px;text-align:center;border-bottom:1px solid #f1f5f9'
+
+    def trow(label, cells, bg=''):
+        tr = f'<tr style="background:{bg}">' if bg else '<tr>'
+        tds = ''.join(f'<td style="{VAL_STYLE}">{c}</td>' for c in cells)
+        return (f'{tr}<td style="{LBL_STYLE}">'
+                f'<span style="font-size:13px;color:#475569">{label}</span></td>{tds}</tr>')
+
+    ext = rc['ext']
+    best_s = max(STRATS, key=lambda s: rc['cfTotal'][s])
+
+    pow_cells = [
+        vs(f"{round(Pc*I2)} kWc"),
+        vs(f"{round(Pc*(1+u))} kWc"),
+        vs(f"{round(Pc*I2)} kWc"),
+        vs(f"{round(Pc)} kWc"),
+        vs(f"{round(Pc)} kWc"),
+    ]
+    ext_cells   = [vs('—' if ext[s]==0 else f"+{int(ext[s])} ans PPA") for s in STRATS]
+    capex_cells = [vs(fe(p['capex'][s])) for s in STRATS]
+    revOA_cells = [vs(fe(rc['revOA'][s])) for s in STRATS]
+    cfOA_cells  = [vs(fe(rc['cfOA'][s])) for s in STRATS]
+    revPst_cells= [vs(fe(rc['revPost'][s])) for s in STRATS]
+
+    cfT_cells = []
+    for s in STRATS:
+        badge = (' <span style="background:#dcfce7;color:#15803d;font-size:10px;'
+                 'padding:2px 6px;border-radius:99px;font-weight:700">★</span>'
+                 if s == best_s else '')
+        cfT_cells.append(vs(fe(rc['cfTotal'][s]), bold=True) + badge)
+
+    delta_cells, pct_cells = [], []
+    for s in STRATS:
+        if s == 'defaut':
+            delta_cells.append(vs('—', '#64748b'))
+            pct_cells.append(vs('—', '#64748b'))
+        else:
+            v = rc['delta'][s]
+            col = '#16a34a' if v > 0 else ('#dc2626' if v < 0 else '#64748b')
+            delta_cells.append(vs(fe(v), col, bold=True))
+            vp = rc['pct'][s]
+            colp = '#16a34a' if vp > 0 else ('#dc2626' if vp < 0 else '#64748b')
+            pct_cells.append(vs(f"{'+'if vp>=0 else ''}{vp*100:.1f}%", colp, bold=True))
+
+    h = ('<div style="overflow-x:auto;background:#fff;border-radius:12px;'
+         'box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:16px">'
+         '<table style="width:100%;border-collapse:collapse"><thead><tr>'
+         '<th style="background:#0f172a;color:#fff;padding:10px 14px;text-align:left;'
+         'width:210px;min-width:210px;max-width:210px;font-size:12px">Indicateur</th>')
+    h += ''.join(th_comp(s) for s in STRATS)
+    h += '</tr></thead><tbody>'
+    h += trow("Puissance après intervention", pow_cells)
+    h += trow("Extension post-OA", ext_cells)
+    h += trow("CAPEX (€)", capex_cells)
+    h += trow("Revenus cumulés EDF OA (€)", revOA_cells)
+    h += trow("Cash Flow EDF OA (€)", cfOA_cells)
+    h += trow("Revenus cumulés post-OA (€)", revPst_cells)
+    h += trow("<strong>Cash Flow Total (€)</strong>", cfT_cells, bg='#fefce8')
+    h += trow("ΔCCF vs Défaut (€)", delta_cells, bg='#f8fafc')
+    h += trow("% vs Défaut", pct_cells, bg='#f8fafc')
+    h += '</tbody></table></div>'
+    return h
+
 # ── PDF generation ────────────────────────────────────────────────────────────
-def generate_pdf(p, fin, results):
+def generate_pdf(p, fin, results, rc):
     from fpdf import FPDF
     from datetime import date as _date
 
@@ -484,7 +610,60 @@ def generate_pdf(p, fin, results):
             mp.set_text_color(15,23,42); mp.cell(col_val_s2,5.5,syn_val(s,results[s],lbl),fill=True,border=0,align='C')
         mp.ln()
 
-    # ── Pages 2-6 landscape ──
+    # ── Page 2 portrait : Stratégie Rénovation (comparateur) ──
+    mp.add_page('P')
+    mp._f("B",12); mp.set_text_color(15,23,42)
+    mp.cell(0,7,"Stratégie Rénovation — Comparatif Cash Flow",ln=True)
+    mp.set_draw_color(203,213,225); mp.line(8,mp.get_y(),mp.w-8,mp.get_y()); mp.ln(2)
+
+    STRAT_LABELS_FR = {'defaut':'Défaut','repow':'Repowering','rep':'Réparation','rev':'Revamping','mix':'Mix Rép+Rev'}
+    col_lbl_c = 50; col_val_c = (mp.w-16-col_lbl_c)/5
+    # Header
+    mp._f("B",7); mp.set_text_color(255,255,255); mp.set_fill_color(15,23,42)
+    mp.cell(col_lbl_c,6,"Indicateur",fill=True,border=0)
+    for s in STRATS:
+        mp.set_fill_color(*STRAT_COLORS_RGB[s])
+        mp.cell(col_val_c,6,STRAT_LABELS_FR[s],fill=True,border=0,align='C')
+    mp.ln()
+
+    Pc,I2,u_=p['Pcentrale'],p['I2'],p['u_']
+    alpha_pct_=int(p['alpha_pct']); u_pct_=int(p['u'])
+    pow_vals_p=[f"{round(Pc*I2)} kWc",f"{round(Pc*(1+u_))} kWc",
+                f"{round(Pc*I2)} kWc",f"{round(Pc)} kWc",f"{round(Pc)} kWc"]
+    ext=rc['ext']
+    ext_vals_p=['—' if ext[s]==0 else f"+{int(ext[s])} ans" for s in STRATS]
+    best_s_c=max(STRATS,key=lambda s:rc['cfTotal'][s])
+
+    comp_rows=[
+        ("Puissance après intervention", pow_vals_p, False, False),
+        ("Extension post-OA",            ext_vals_p, False, False),
+        ("CAPEX",      [fe(p['capex'][s])    for s in STRATS], False, False),
+        ("Revenus OA", [fe(rc['revOA'][s])   for s in STRATS], False, False),
+        ("CF EDF OA",  [fe(rc['cfOA'][s])    for s in STRATS], False, False),
+        ("Revenus post-OA",[fe(rc['revPost'][s]) for s in STRATS], False, False),
+        ("Cash Flow Total",[fe(rc['cfTotal'][s]) for s in STRATS], True, False),
+        ("ΔCCF vs Défaut", [None]+[rc['delta'][s] for s in STRATS if s!='defaut'], True, True),
+        ("% vs Défaut",    [None]+[rc['pct'][s]   for s in STRATS if s!='defaut'], False, True),
+    ]
+    for i,(lbl,vals,bold,is_delta) in enumerate(comp_rows):
+        bg=(248,250,252) if i%2==0 else (255,255,255); mp.set_fill_color(*bg)
+        mp._f("B" if bold else "",7); mp.set_text_color(71,85,105)
+        mp.cell(col_lbl_c,5.5,lbl,fill=True,border=0)
+        for vi,v in enumerate(vals):
+            if is_delta and v is None:
+                mp.set_text_color(100,116,139); mp._f("",7)
+                mp.cell(col_val_c,5.5,"—",fill=True,border=0,align='C')
+            elif is_delta and isinstance(v,float):
+                col=(22,163,74) if v>=0 else (185,28,28)
+                mp.set_text_color(*col); mp._f("B",7)
+                txt=fe(v) if lbl.startswith("ΔCCF") else f"{'+'if v>=0 else ''}{v*100:.1f}%"
+                mp.cell(col_val_c,5.5,txt,fill=True,border=0,align='C')
+            else:
+                mp.set_text_color(15,23,42); mp._f("B" if bold else "",7)
+                mp.cell(col_val_c,5.5,str(v),fill=True,border=0,align='C')
+        mp.ln()
+
+    # ── Pages 3-7 landscape ──
     for s in STRATS:
         sc    = results[s]; rows = sc['rows']; total_yrs = sc['total_yrs']
         N2    = int(p['N']); color = STRAT_COLORS_RGB[s]
@@ -628,9 +807,10 @@ with st.sidebar:
     st.number_input("Intérêt trésorerie (%)", min_value=0.0, max_value=10.0, step=0.25, key="fp_treas_rate")
 
 # ── Compute ───────────────────────────────────────────────────────────────────
-p      = get_params()
-fin    = get_fin()
+p       = get_params()
+fin     = get_fin()
 results = run_all(p, fin)
+rc      = compute_comparateur(p)
 
 # KPI bar
 k1,k2,k3,k4 = st.columns(4)
@@ -641,8 +821,9 @@ k4.metric("Gap kWc", f"{p['gap_kWc']:.0f} kWc")
 st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_syn, tab_def, tab_rpw, tab_rep, tab_rev, tab_mix = st.tabs(
-    ["📊 Synthèse", "Défaut", "Repowering", "Réparation", "Revamping", "Mix Rép+Rev"])
+tab_syn, tab_def, tab_rpw, tab_rep, tab_rev, tab_mix, tab_ren = st.tabs(
+    ["📊 Synthèse", "Défaut", "Repowering", "Réparation", "Revamping", "Mix Rép+Rev",
+     "🏗️ Stratégie Rénovation"])
 
 with tab_syn:
     st.markdown("#### Tableau de Synthèse — Tous Scénarios")
@@ -661,11 +842,16 @@ for tab, s in zip([tab_def, tab_rpw, tab_rep, tab_rev, tab_mix], STRATS):
         c5.metric("DSCR moyen", dscr_disp)
         st.markdown(render_scenario_table(s, sc, int(p['N'])), unsafe_allow_html=True)
 
+with tab_ren:
+    st.markdown("#### Stratégie Rénovation — Comparatif Cash Flow (hors hypothèses financières)")
+    st.caption("Ce tableau reprend la logique du Comparateur de Stratégies : revenus bruts cumulés et Cash Flow net de CAPEX, sans modélisation d'emprunt ni de fiscalité.")
+    st.markdown(render_comparateur_table(p, rc), unsafe_allow_html=True)
+
 # ── PDF download ──────────────────────────────────────────────────────────────
 from datetime import date as _dt
 st.markdown("---")
 try:
-    pdf_bytes = generate_pdf(p, fin, results)
+    pdf_bytes = generate_pdf(p, fin, results, rc)
     st.download_button(
         label="📄 Télécharger le rapport PDF complet",
         data=pdf_bytes,
