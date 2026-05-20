@@ -780,66 +780,66 @@ def generate_pdf(p, fin, results, rc):
 
         # ── Post-decision scenario lines (drawn first, labels on top) ──
 
-        # 1. Défaut (dark gray, dashed) — from I2, declines at dn%/an
         pw_def_end = I2_ * (1-dn_)**(N_+N1_)
+        pw_rep_end = I2_ * (1-d_)**(N_+N1_)
+        pw_rev_end = 1.0 * (1-d_)**(N_+N1_)
+        pw_rpw_end = (1+u_) * (1-d_)**N2_
+        y_rev = py(1.0)
+        y_rpw = py(1+u_)
+
+        # 1. Défaut (dark gray, dashed)
         mp.set_draw_color(55,65,81); mp.set_line_width(0.5)
         mp.set_dash_pattern(dash=2.5,gap=1.5)
         mp.line(xY, yI2, xYN1, py(pw_def_end))
         mp.set_dash_pattern()
 
-        # 2. Réparation (olive green, solid) — from I2, declines at d%/an
-        pw_rep_end = I2_ * (1-d_)**(N_+N1_)
+        # 2. Réparation (green, solid)
         mp.set_draw_color(22,101,52); mp.set_line_width(0.5)
         mp.line(xY, yI2, xYN1, py(pw_rep_end))
 
-        # 3. Revamping/Mix (amber) — RESET to Pc=1.0 at decision, then d%/an
-        pw_rev_end = 1.0 * (1-d_)**(N_+N1_)
-        y_rev = py(1.0)
+        # 3. Revamping/Mix (amber) — arrow shaft touches y_rev exactly
         mp.set_draw_color(180,120,0); mp.set_line_width(0.4)
-        mp.line(xY-0.8, yI2, xY-0.8, y_rev+2.0)        # reset arrow shaft
-        ah=1.8
-        mp.line(xY-0.8, y_rev+2.0, xY-0.8-ah, y_rev+2.0+ah)
-        mp.line(xY-0.8, y_rev+2.0, xY-0.8+ah, y_rev+2.0+ah)
+        mp.line(xY-1.0, yI2, xY-1.0, y_rev)
+        ah=1.2
+        mp.line(xY-1.0, y_rev, xY-1.0-ah, y_rev+ah)
+        mp.line(xY-1.0, y_rev, xY-1.0+ah, y_rev+ah)
         mp.set_line_width(0.5)
         mp.line(xY, y_rev, xYN1, py(pw_rev_end))
 
-        # 4. Repowering (red) — RESET to Pc*(1+u) at decision, then d%/an
-        pw_rpw_end = (1+u_) * (1-d_)**N2_
-        y_rpw = py(1+u_)
+        # 4. Repowering (red) — arrow shaft touches y_rpw exactly
         mp.set_draw_color(185,28,28); mp.set_line_width(0.4)
-        mp.line(xY+0.8, yI2, xY+0.8, y_rpw+2.0)        # reset arrow shaft
-        ah=1.8
-        mp.line(xY+0.8, y_rpw+2.0, xY+0.8-ah, y_rpw+2.0+ah)
-        mp.line(xY+0.8, y_rpw+2.0, xY+0.8+ah, y_rpw+2.0+ah)
+        mp.line(xY+1.0, yI2, xY+1.0, y_rpw)
+        ah=1.2
+        mp.line(xY+1.0, y_rpw, xY+1.0-ah, y_rpw+ah)
+        mp.line(xY+1.0, y_rpw, xY+1.0+ah, y_rpw+ah)
         mp.set_line_width(0.5)
         mp.line(xY, y_rpw, xYN2, py(pw_rpw_end))
 
-        # ── Labels above each line (after all lines drawn) ──
-        # Position labels at ~60% of the post-decision run, above each line
-        frac = 0.60
-        t_d  = Y_ + (N_+N1_) * frac
-        t_r  = Y_ + (N_+N1_) * frac
-        t_rv = Y_ + (N_+N1_) * frac
-        t_rp = Y_ + N_ + N2_ * frac
-
-        y_d_mid  = py(I2_  * (1-dn_)**((N_+N1_)*frac))
-        y_r_mid  = py(I2_  * (1-d_) **((N_+N1_)*frac))
-        y_rv_mid = py(1.0  * (1-d_) **((N_+N1_)*frac))
-        y_rp_mid = py((1+u_)*(1-d_) **(N_ + N2_*frac))
-
-        lbl(tx(t_d)+1,  y_d_mid -5.5, f"Défaut  -{dn_*100:.1f}%/an",       (55,65,81))
-        lbl(tx(t_r)-35, y_r_mid -5.5, f"Réparation  -{d_*100:.2f}%/an",    (22,101,52))
-        lbl(tx(t_rv)-2, y_rv_mid-5.5, f"Rev / Mix  -{d_*100:.2f}%/an",     (180,120,0))
-        lbl(tx(t_rp)+1, y_rp_mid-5.5, f"Repowering  -{d_*100:.2f}%/an",    (185,28,28))
-
-        # +u% annotation on repowering arrow
+        # +u% annotation on repowering arrow (right of shaft)
         mp._f("B",6); mp.set_text_color(185,28,28)
-        mp.set_xy(xY+2, (yI2+y_rpw)/2-2)
+        mp.set_xy(xY+2.5, (yI2+y_rpw)/2-2)
         mp.cell(12,4,f"+{u_*100:.0f}%")
+
+        # ── Labels: all left-aligned at same x = mid of post-decision zone ──
+        # x_lbl = midpoint between decision and end of N1 PPA
+        x_lbl = (xY + xYN1) / 2
+        t_mid = (N_ + N1_) / 2.0          # years after decision at x_lbl
+
+        # Y position of each line at x_lbl
+        y_rpw_at = py((1+u_) * (1-d_)**t_mid)
+        y_rev_at = py(1.0    * (1-d_)**t_mid)
+        y_rep_at = py(I2_    * (1-d_)**t_mid)
+        y_def_at = py(I2_    * (1-dn_)**t_mid)
+
+        # Repowering & Rev/Mix: label ABOVE line  |  Réparation & Défaut: label BELOW
+        lbl(x_lbl, y_rpw_at - 5.5, f"Repowering  -{d_*100:.2f}%/an",        (185,28,28))
+        lbl(x_lbl, y_rev_at - 5.5, f"Revamping / Rép+Mix  -{d_*100:.2f}%/an",(180,120,0))
+        lbl(x_lbl, y_rep_at + 1.0, f"Réparation  -{d_*100:.2f}%/an",        (22,101,52))
+        lbl(x_lbl, y_def_at + 1.0, f"Défaut  -{dn_*100:.1f}%/an",           (55,65,81))
 
         # Y-axis labels
         mp._f("",6); mp.set_text_color(71,85,105)
-        for i,ll in enumerate(["Puissance","de la","centrale","nominale"]):
+        for i,ll in enumerate(["Puissance","des panneaux","de la","centrale"]):
             mp.set_xy(PL, gy+gh/2-9+i*4.2); mp.cell(lbl_w-1,4,ll,align='C')
 
         # ── Period bars ──
