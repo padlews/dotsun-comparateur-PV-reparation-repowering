@@ -702,93 +702,136 @@ def generate_pdf(p, fin, results, rc):
         tarif_=float(p['tarif']); PPA_=float(p['PPA'])
         Pc_=p['Pcentrale']
 
-        PL=mp.l_margin; PR=mp.w-8
-        lbl_w=18          # Y-axis label area
-        gx=PL+lbl_w; gw=PR-gx
-        gy=mp.get_y()+2; gh=55
-        total=N_+N2_
-        def tx(t): return gx+t/total*gw
-        # Power Y-axis (fraction of Pc)
-        p_top=(1+u_)*1.18
-        p_bot=max(0.0, I2_*(1-dn_)**(N_+N1_)*0.75)
-        def py(f): return gy+gh*(1-(f-p_bot)/(p_top-p_bot))
+        # Years elapsed before decision (common "avant projet" curve)
+        if d_ > 0 and 0 < I2_ < 1.0:
+            Y_ = max(5, round(math.log(I2_) / math.log(1 - d_)))
+        else:
+            Y_ = 10
 
-        xN=tx(N_); xN1=tx(N_+N1_)
+        # Timeline: 0 → Y_ (decision) → Y_+N_ (end OA) → Y_+N_+max(N1_,N2_)
+        total = Y_ + N_ + max(N1_, N2_)
+
+        PL=mp.l_margin; PR=mp.w-8
+        lbl_w=18
+        gx=PL+lbl_w; gw=PR-gx
+        gy=mp.get_y()+4; gh=52
+
+        def tx(t): return gx + t/total * gw
+        p_top = (1 + u_) * 1.14
+        p_bot = max(0.0, I2_ * (1 - dn_)**(N_ + N1_) * 0.80)
+        def py(f): return gy + gh * (1 - (f - p_bot) / (p_top - p_bot))
+
+        xY  = tx(Y_)              # decision point
+        xYN = tx(Y_ + N_)         # end of OA
+        xYN1= tx(Y_ + N_ + N1_)   # end PPA — Déf/Rép/Rev/Mix
+        xYN2= tx(Y_ + N_ + N2_)   # end PPA — Repowering
+
+        yNom = py(1.0)
+        yI2  = py(I2_)
 
         # Graph background
         mp.set_fill_color(250,251,255); mp.set_draw_color(200,210,225)
         mp.set_line_width(0.3); mp.rect(gx,gy,gw,gh,'FD')
 
-        # Vertical dashed separators
+        # Shaded "avant projet" zone
+        mp.set_fill_color(238,242,250)
+        mp.rect(gx, gy, xY-gx, gh, 'F')
+
+        # Zone labels above graph
+        zl_y = gy - 4.5
+        mp._f("",5); mp.set_text_color(100,116,139)
+        mp.set_xy((gx+xY)/2-14, zl_y); mp.cell(28,3.5,"Avant projet",align='C')
+        mp.set_xy((xY+xYN)/2-14, zl_y); mp.cell(28,3.5,"OA restantes",align='C')
+        mp.set_xy(xYN+2, zl_y); mp.cell(50,3.5,"Post-OA (PPA)")
+
+        # Vertical dashed separators at decision and end-OA
         mp.set_draw_color(160,170,190); mp.set_line_width(0.25)
         mp.set_dash_pattern(dash=1.5,gap=1)
-        mp.line(xN, gy, xN, gy+gh); mp.line(xN1, gy, xN1, gy+gh)
+        mp.line(xY, gy, xY, gy+gh)
+        mp.line(xYN, gy, xYN, gy+gh)
         mp.set_dash_pattern()
 
-        # Nominal reference (blue dashed)
-        yNom=py(1.0)
+        # Nominal reference line (blue dashed)
         mp.set_draw_color(96,165,250); mp.set_line_width(0.5)
         mp.set_dash_pattern(dash=3,gap=1.5)
-        mp.line(gx,yNom,gx+gw,yNom); mp.set_dash_pattern()
+        mp.line(gx,yNom,gx+gw,yNom)
+        mp.set_dash_pattern()
         mp._f("",5.5); mp.set_text_color(96,165,250)
-        mp.set_xy(gx+2,yNom-4.5)
+        mp.set_xy(gx+2, yNom-4.5)
         mp.cell(50,4,f"Puissance nominale  {round(Pc_)} kWc")
 
-        # Current power level annotation
-        yI2=py(I2_)
-        mp._f("",5.5); mp.set_text_color(100,116,139)
-        mp.set_xy(gx+2,yI2+1)
-        mp.cell(20,3.5,f"I2={I2_*100:.1f}%")
+        # ── Common "avant projet" curve (black) — Pc at t=0 → I2 at t=Y ──
+        mp.set_draw_color(30,41,59); mp.set_line_width(1.8)
+        mp.line(gx, py(1.0), xY, yI2)
+        mp._f("",5.5); mp.set_text_color(30,41,59)
+        mp.set_xy(gx+2, (py(1.0)+yI2)/2)
+        mp.cell(38,3.5,f"Avant projet  -{d_*100:.2f}%/an")
 
-        # ── Scenario lines ──
-        # 1. Défaut (dark gray, dashed)
-        pw_def_end=I2_*(1-dn_)**(N_+N1_)
+        # I2 annotation at decision point
+        mp._f("",5.5); mp.set_text_color(100,116,139)
+        mp.set_xy(xY+1.5, yI2+0.5)
+        mp.cell(22,3.5,f"I2={I2_*100:.1f}%")
+
+        # ── Post-decision scenario lines ──
+
+        # 1. Défaut (dark gray, dashed) — from I2, declines at dn%/an
+        pw_def_end = I2_ * (1-dn_)**(N_+N1_)
         mp.set_draw_color(55,65,81); mp.set_line_width(1.0)
         mp.set_dash_pattern(dash=3,gap=1.5)
-        mp.line(tx(0),yI2,tx(N_+N1_),py(pw_def_end))
+        mp.line(xY, yI2, xYN1, py(pw_def_end))
         mp.set_dash_pattern()
-        mid_t_d=(N_+N1_)*0.62
-        mid_y_d=(yI2+py(pw_def_end))/2
+        mid_def = Y_ + (N_+N1_)*0.58
         mp._f("",5.5); mp.set_text_color(55,65,81)
-        mp.set_xy(tx(mid_t_d)+1,mid_y_d+1)
+        mp.set_xy(tx(mid_def)+1, (yI2+py(pw_def_end))/2+1)
         mp.cell(32,3.5,f"Défaut  -{dn_*100:.1f}%/an")
 
-        # 2. Réparation/Revamping/Mix (green, solid)
-        pw_rep_end=I2_*(1-d_)**(N_+N1_)
+        # 2. Réparation (olive green, solid) — from I2, declines at d%/an
+        pw_rep_end = I2_ * (1-d_)**(N_+N1_)
         mp.set_draw_color(22,101,52); mp.set_line_width(1.2)
-        mp.line(tx(0),yI2,tx(N_+N1_),py(pw_rep_end))
-        mid_t_r=(N_+N1_)*0.52
-        mid_y_r=(yI2+py(pw_rep_end))/2
+        mp.line(xY, yI2, xYN1, py(pw_rep_end))
+        mid_rep = Y_ + (N_+N1_)*0.40
         mp._f("",5.5); mp.set_text_color(22,101,52)
-        mp.set_xy(tx(mid_t_r)-20,mid_y_r-4.5)
-        mp.cell(38,3.5,f"Rep / Rev / Mix  -{d_*100:.2f}%/an")
+        mp.set_xy(tx(mid_rep)-24, (yI2+py(pw_rep_end))/2-4.5)
+        mp.cell(30,3.5,f"Réparation  -{d_*100:.2f}%/an")
 
-        # 3. Repowering (red)
-        pw_atN=I2_*(1-dn_)**N_
-        pw_rpw_end=(1+u_)*(1-d_)**N2_
-        mp.set_draw_color(185,28,28); mp.set_line_width(1.0)
-        mp.set_dash_pattern(dash=3,gap=1.5)
-        mp.line(tx(0),yI2,xN,py(pw_atN)); mp.set_dash_pattern()
-        # Vertical arrow up at year N
-        yJF=py(pw_atN); yJT=py(1+u_)
-        mp.set_line_width(1.5); mp.line(xN,yJF,xN,yJT+2)
+        # 3. Revamping/Mix (amber) — RESET to Pc=1.0 at decision, then d%/an
+        pw_rev_end = 1.0 * (1-d_)**(N_+N1_)
+        y_rev = py(1.0)
+        mp.set_draw_color(180,120,0); mp.set_line_width(1.0)
+        mp.line(xY-0.8, yI2, xY-0.8, y_rev+2.5)   # reset arrow shaft (offset left)
+        ah=2.0
+        mp.line(xY-0.8, y_rev+2.5, xY-0.8-ah, y_rev+2.5+ah)
+        mp.line(xY-0.8, y_rev+2.5, xY-0.8+ah, y_rev+2.5+ah)
+        mp.set_line_width(1.2)
+        mp.line(xY, y_rev, xYN1, py(pw_rev_end))
+        mid_rev = Y_ + (N_+N1_)*0.28
+        mp._f("",5.5); mp.set_text_color(180,120,0)
+        mp.set_xy(tx(mid_rev)-4, y_rev-5.5)
+        mp.cell(36,3.5,f"Rev / Mix  -{d_*100:.2f}%/an")
+
+        # 4. Repowering (red) — RESET to Pc*(1+u) at decision, then d%/an
+        pw_rpw_end = (1+u_) * (1-d_)**N2_
+        y_rpw = py(1+u_)
+        mp.set_draw_color(185,28,28); mp.set_line_width(1.5)
+        mp.line(xY+0.8, yI2, xY+0.8, y_rpw+2.5)   # reset arrow shaft (offset right)
         ah=2.5
         mp.set_line_width(0.8)
-        mp.line(xN,yJT+2,xN-ah,yJT+2+ah); mp.line(xN,yJT+2,xN+ah,yJT+2+ah)
+        mp.line(xY+0.8, y_rpw+2.5, xY+0.8-ah, y_rpw+2.5+ah)
+        mp.line(xY+0.8, y_rpw+2.5, xY+0.8+ah, y_rpw+2.5+ah)
         mp._f("B",6); mp.set_text_color(185,28,28)
-        mp.set_xy(xN+1.5,(yJF+yJT)/2-2); mp.cell(12,4,f"+{u_*100:.0f}%")
-        # Post-repowering line
+        mp.set_xy(xY+2, (yI2+y_rpw)/2-2)
+        mp.cell(12,4,f"+{u_*100:.0f}%")
         mp.set_line_width(1.2)
-        mp.line(xN,py(1+u_),tx(N_+N2_),py(pw_rpw_end))
-        mid_t_rp=N_+N2_*0.38
+        mp.line(xY, y_rpw, xYN2, py(pw_rpw_end))
+        mid_rpw = Y_ + N_ + N2_*0.42
         mp._f("",5.5); mp.set_text_color(185,28,28)
-        mp.set_xy(tx(mid_t_rp)+1,py(1+u_)-5)
-        mp.cell(32,3.5,f"Repowering  -{d_*100:.2f}%/an")
+        mp.set_xy(tx(mid_rpw)+1, y_rpw-5.5)
+        mp.cell(34,3.5,f"Repowering  -{d_*100:.2f}%/an")
 
-        # Y-axis label
+        # Y-axis labels
         mp._f("",6); mp.set_text_color(71,85,105)
         for i,ll in enumerate(["Puissance","de la","centrale","nominale"]):
-            mp.set_xy(PL,gy+gh/2-9+i*4.2); mp.cell(lbl_w-1,4,ll,align='C')
+            mp.set_xy(PL, gy+gh/2-9+i*4.2); mp.cell(lbl_w-1,4,ll,align='C')
 
         # ── Period bars ──
         bar_y=gy+gh+3; bh=6.5; gap_b=2.0
@@ -798,38 +841,37 @@ def generate_pdf(p, fin, results, rc):
             mp._f("B",5.5); mp.set_text_color(255,255,255)
             mp.set_xy(x+1,y+1); mp.cell(w-2,bh-2,txt,align='C')
 
-        # Row 1 — Rep/Rev/Défaut timeline
-        bar(gx,     xN-gx,         (34,197,94),
-            f"EDF OA — {N_} ans — {tarif_:.4f} €/kWh", bar_y)
-        bar(xN,     xN1-xN,        (202,138,4),
-            f"PPA — {N1_} ans — {PPA_:.3f} €/kWh",    bar_y)
+        # Row label offset
+        lbl_off = bar_y - 3.5
 
-        # Row 2 — Repowering timeline
+        # Row 1 — Déf / Rép / Rev / Mix
+        mp._f("I",5); mp.set_text_color(100,116,139)
+        mp.set_xy(gx+1, lbl_off); mp.cell(50,3.5,"Déf / Rép / Rev / Mix")
+        bar(gx,    xYN-gx,      (34,197,94),
+            f"EDF OA — {N_} ans restantes — {tarif_:.4f} €/kWh", bar_y)
+        bar(xYN,   xYN1-xYN,   (202,138,4),
+            f"PPA — {N1_} ans — {PPA_:.3f} €/kWh", bar_y)
+
+        # Row 2 — Repowering
         bar_y2=bar_y+bh+gap_b
-        mp.set_fill_color(220,225,235); mp.rect(gx,bar_y2,xN-gx,bh,'F')
-        mp._f("",5.5); mp.set_text_color(100,116,139)
-        mp.set_xy(gx+1,bar_y2+1); mp.cell(xN-gx-2,bh-2,f"OA — {N_} ans",align='C')
-        bar(xN,tx(N_+N2_)-xN,(202,138,4),
-            f"PPA Repowering — {N2_} ans — {PPA_:.3f} €/kWh", bar_y2)
+        mp._f("I",5); mp.set_text_color(100,116,139)
+        mp.set_xy(gx+1, lbl_off+bh+gap_b); mp.cell(25,3.5,"Repowering")
+        bar(gx,    xYN-gx,      (34,197,94),
+            f"EDF OA — {N_} ans restantes — {tarif_:.4f} €/kWh", bar_y2)
+        bar(xYN,   xYN2-xYN,   (202,138,4),
+            f"PPA — {N2_} ans — {PPA_:.3f} €/kWh", bar_y2)
 
-        # Year count labels
-        yr_y=bar_y2+bh+1.5
+        # X-axis year labels
+        yr_y = bar_y2+bh+1.5
         mp._f("",5.5); mp.set_text_color(30,41,59)
-        mp.set_xy(gx,yr_y); mp.cell(xN-gx,4,f"{N_} ans",align='C')
-        mp.set_xy(xN,yr_y); mp.cell(xN1-xN,4,f"+ {N1_} ans",align='C')
-        mp.set_xy(xN,yr_y+4); mp.cell(tx(N_+N2_)-xN,4,f"+ {N2_} ans (Repow.)",align='C')
-
-        # Zone labels
-        zl_y=yr_y+8
-        mp._f("",5); mp.set_text_color(100,116,139)
-        mp.set_xy((gx+xN)/2-18,zl_y); mp.cell(36,3.5,"Période OA",align='C')
-        mp.set_xy((xN+xN1)/2-22,zl_y); mp.cell(44,3.5,"Modélisation — 4 scénarios",align='C')
-        if tx(N_+N2_)>xN1+8:
-            mp.set_xy((xN1+tx(N_+N2_))/2-20,zl_y)
-            mp.cell(40,3.5,"Extended — Repowering",align='C')
+        mp.set_xy(gx,     yr_y); mp.cell(xY-gx,    4, f"~{Y_} ans",  align='C')
+        mp.set_xy(xY,     yr_y); mp.cell(xYN-xY,   4, f"{N_} ans",   align='C')
+        mp.set_xy(xYN,    yr_y); mp.cell(xYN1-xYN, 4, f"+{N1_} ans", align='C')
+        if xYN2 > xYN1+5:
+            mp.set_xy(xYN, yr_y+4); mp.cell(xYN2-xYN, 4, f"+{N2_} ans (Repow.)", align='C')
 
         mp.set_line_width(0.2)
-        mp.set_y(zl_y+5)
+        mp.set_y(yr_y+9)
 
     # ── PAGE 1 : Paramètres + Diagramme ─────────────────────────────────────────
     mp.add_page('P')
