@@ -570,197 +570,312 @@ def generate_pdf(p, fin, results, rc):
     mp = MixedPDF()
     mp.set_auto_page_break(auto=True, margin=22)
 
-    # ── Page 1 portrait ──
+    STRAT_LABELS_FR = {'defaut':'Défaut','repow':'Repowering','rep':'Réparation',
+                       'rev':'Revamping','mix':'Mix Rép+Rev'}
+
+    # ── Shared helpers ──────────────────────────────────────────────────────────
+    def _section(title):
+        mp._f("B",10); mp.set_text_color(15,23,42)
+        mp.cell(0,6,title,ln=True)
+        mp.set_draw_color(203,213,225); mp.line(8,mp.get_y(),mp.w-8,mp.get_y()); mp.ln(2)
+
+    def _params_table():
+        for i in range(max(len(proj_params), len(fin_params))):
+            bg=(248,250,252) if i%2==0 else (255,255,255); mp.set_fill_color(*bg)
+            if i<len(proj_params):
+                mp.set_text_color(100,116,139); mp._f("",7); mp.cell(lw,5,proj_params[i][0],fill=True)
+                mp.set_text_color(15,23,42); mp._f("B",7); mp.cell(vw,5,proj_params[i][1],fill=True)
+            else: mp.cell(lw+vw,5,"",fill=True)
+            mp.cell(4,5,"")
+            if i<len(fin_params):
+                mp.set_text_color(100,116,139); mp._f("",7); mp.cell(lw,5,fin_params[i][0],fill=True)
+                mp.set_text_color(15,23,42); mp._f("B",7); mp.cell(vw,5,fin_params[i][1],fill=True)
+            mp.ln()
+
+    def _syn_table():
+        col_l = 46; col_v = (mp.w-16-col_l)/5
+        mp._f("B",7); mp.set_text_color(255,255,255); mp.set_fill_color(15,23,42)
+        mp.cell(col_l,6,"Indicateur",fill=True,border=0)
+        for s in STRATS:
+            mp.set_fill_color(*STRAT_COLORS_RGB[s])
+            mp.cell(col_v,6,LABELS[s],fill=True,border=0,align='C')
+        mp.ln()
+        for i,lbl in enumerate(syn_labels):
+            bg=(248,250,252) if i%2==0 else (255,255,255); mp.set_fill_color(*bg)
+            bold_r = lbl in ("Résultat net cumulé","Δ Trésorerie vs Défaut","ROE incrémental")
+            mp._f("B" if bold_r else "",7); mp.set_text_color(71,85,105)
+            mp.cell(col_l,5.5,lbl,fill=True,border=0)
+            for s in STRATS:
+                mp.set_text_color(15,23,42)
+                mp._f("B" if bold_r else "",7)
+                mp.cell(col_v,5.5,syn_val(s,results[s],lbl),fill=True,border=0,align='C')
+            mp.ln()
+
+    def _strat_ren_table():
+        col_lc = 50; col_vc = (mp.w-16-col_lc)/5
+        mp._f("B",7); mp.set_text_color(255,255,255); mp.set_fill_color(15,23,42)
+        mp.cell(col_lc,6,"Indicateur",fill=True,border=0)
+        for s in STRATS:
+            mp.set_fill_color(*STRAT_COLORS_RGB[s])
+            mp.cell(col_vc,6,STRAT_LABELS_FR[s],fill=True,border=0,align='C')
+        mp.ln()
+        Pc_=p['Pcentrale']; I2_=p['I2']; u__=p['u_']
+        pow_v=[f"{round(Pc_*I2_)} kWc",f"{round(Pc_*(1+u__))} kWc",
+               f"{round(Pc_*I2_)} kWc",f"{round(Pc_)} kWc",f"{round(Pc_)} kWc"]
+        ext_=rc['ext']
+        ext_v=['—' if ext_[s]==0 else f"+{int(ext_[s])} ans" for s in STRATS]
+        crow=[
+            ("Puissance après intervention", pow_v,                                    False,False),
+            ("Extension post-OA",            ext_v,                                    False,False),
+            ("CAPEX",    [fe(p['capex'][s])    for s in STRATS],                       False,False),
+            ("Revenus OA",[fe(rc['revOA'][s])  for s in STRATS],                      False,False),
+            ("CF EDF OA",[fe(rc['cfOA'][s])    for s in STRATS],                      False,False),
+            ("Revenus post-OA",[fe(rc['revPost'][s]) for s in STRATS],                False,False),
+            ("Cash Flow Total",[fe(rc['cfTotal'][s]) for s in STRATS],                True, False),
+            ("ΔCCF vs Défaut",[None]+[rc['delta'][s] for s in STRATS if s!='defaut'], True, True),
+            ("% vs Défaut",  [None]+[rc['pct'][s]   for s in STRATS if s!='defaut'],  False,True),
+        ]
+        for i,(lbl,vals,bold,is_d) in enumerate(crow):
+            bg=(248,250,252) if i%2==0 else (255,255,255); mp.set_fill_color(*bg)
+            mp._f("B" if bold else "",7); mp.set_text_color(71,85,105)
+            mp.cell(col_lc,5.5,lbl,fill=True,border=0)
+            for v in vals:
+                if is_d and v is None:
+                    mp.set_text_color(100,116,139); mp._f("",7)
+                    mp.cell(col_vc,5.5,"—",fill=True,border=0,align='C')
+                elif is_d and isinstance(v,float):
+                    tc2=(22,163,74) if v>=0 else (185,28,28)
+                    mp.set_text_color(*tc2); mp._f("B",7)
+                    txt=fe(v) if lbl.startswith("ΔCCF") else f"{'+'if v>=0 else ''}{v*100:.1f}%"
+                    mp.cell(col_vc,5.5,txt,fill=True,border=0,align='C')
+                else:
+                    mp.set_text_color(15,23,42); mp._f("B" if bold else "",7)
+                    mp.cell(col_vc,5.5,str(v),fill=True,border=0,align='C')
+            mp.ln()
+        # Bannière recommandée
+        best_r=max(STRATS,key=lambda s:rc['pct'][s])
+        best_p=rc['pct'][best_r]
+        mp.ln(2); mp.set_fill_color(240,253,244)
+        mp._f("B",9); mp.set_text_color(22,101,52)
+        mp.cell(0,8,f"Stratégie Recommandée : {STRAT_LABELS_FR[best_r]}"
+                    f"   —   {'+'if best_p>=0 else ''}{best_p*100:.1f}% vs Défaut",
+                fill=True,ln=True)
+        if best_r=='mix':
+            mp._f("",8); mp.set_text_color(22,101,52); mp.set_fill_color(240,253,244)
+            mp.cell(0,6,
+                f"   Module à façon : {round(p['Pm_fac'])} Wc   |"
+                f"   Part remplacement : {round(p['alpha_rev']*100)}%   |"
+                f"   Nb modules : {round(p['n_rev']):,}",
+                fill=True,ln=True)
+
+    def _hyp_table():
+        HYP=[("Réparation","Restitution de l'intégrité électrique du panneau — ne remet pas à zéro la dégradation naturelle des cellules."),
+             ("Revamping","Remplacement par des panneaux à façon (format & caractéristiques similaires) — panneaux neufs."),
+             ("Repowering","Remplacement complet (panneaux, structure, onduleur...) avec uplift de capacité. Arrêt plus long."),
+             ("Mix Rép+Rev","Panneaux réparables → réparés ; non réparables → remplacés à façon pour revenir à la puissance nominale."),
+             ("Défaut","Aucune intervention — dégradation accélérée (dn) appliquée chaque année.")]
+        NOTES=["Post-OA : valorisation au tarif PPA / agrégateur. Réparation & Revamping : +N1 ans. Repowering : +N2 ans.",
+               "Le scénario Défaut bénéficie également de N1 années post-OA (à dégradation accélérée).",
+               "Les hypothèses financières (CAPEX, emprunt, fiscalité, O&M) sont détaillées dans le tableau de synthèse."]
+        col_s2=32; col_d2=mp.w-16-col_s2
+        mp._f("B",8); mp.set_fill_color(15,23,42); mp.set_text_color(255,255,255)
+        mp.cell(col_s2,7,"Stratégie",fill=True,border=0)
+        mp.cell(col_d2,7,"Définition",fill=True,border=0); mp.ln()
+        for i,(strat,defn) in enumerate(HYP):
+            bg=(248,250,252) if i%2==0 else (255,255,255); mp.set_fill_color(*bg)
+            x0h,y0h=mp.l_margin,mp.get_y()
+            mp.set_xy(x0h+col_s2,y0h); mp._f("",8); mp.set_text_color(71,85,105)
+            mp.multi_cell(col_d2,5,defn,fill=True,border=0)
+            y1h=mp.get_y(); rh=max(y1h-y0h,5)
+            mp.set_xy(x0h,y0h); mp._f("B",8); mp.set_text_color(15,23,42)
+            mp.set_fill_color(*bg); mp.cell(col_s2,rh,strat,fill=True,border=0)
+            mp.set_y(y1h)
+        mp.ln(3)
+        mp._f("",7); mp.set_text_color(100,116,139)
+        for note in NOTES:
+            mp.set_x(mp.l_margin); mp.multi_cell(0,4,f"- {note}")
+
+    # ── Diagram ──────────────────────────────────────────────────────────────────
+    def _draw_diagram():
+        N_=int(p['N']); N1_=int(p['N1']); N2_=int(p['N2'])
+        d_=p['d_']; dn_=p['dn_']; u_=p['u_']; I2_=p['I2']
+        tarif_=float(p['tarif']); PPA_=float(p['PPA'])
+        Pc_=p['Pcentrale']
+
+        PL=mp.l_margin; PR=mp.w-8
+        lbl_w=18          # Y-axis label area
+        gx=PL+lbl_w; gw=PR-gx
+        gy=mp.get_y()+2; gh=55
+        total=N_+N2_
+        def tx(t): return gx+t/total*gw
+        # Power Y-axis (fraction of Pc)
+        p_top=(1+u_)*1.18
+        p_bot=max(0.0, I2_*(1-dn_)**(N_+N1_)*0.75)
+        def py(f): return gy+gh*(1-(f-p_bot)/(p_top-p_bot))
+
+        xN=tx(N_); xN1=tx(N_+N1_)
+
+        # Graph background
+        mp.set_fill_color(250,251,255); mp.set_draw_color(200,210,225)
+        mp.set_line_width(0.3); mp.rect(gx,gy,gw,gh,'FD')
+
+        # Vertical dashed separators
+        mp.set_draw_color(160,170,190); mp.set_line_width(0.25)
+        mp.set_dash_pattern(dash=1.5,gap=1)
+        mp.line(xN, gy, xN, gy+gh); mp.line(xN1, gy, xN1, gy+gh)
+        mp.set_dash_pattern()
+
+        # Nominal reference (blue dashed)
+        yNom=py(1.0)
+        mp.set_draw_color(96,165,250); mp.set_line_width(0.5)
+        mp.set_dash_pattern(dash=3,gap=1.5)
+        mp.line(gx,yNom,gx+gw,yNom); mp.set_dash_pattern()
+        mp._f("",5.5); mp.set_text_color(96,165,250)
+        mp.set_xy(gx+2,yNom-4.5)
+        mp.cell(50,4,f"Puissance nominale  {round(Pc_)} kWc")
+
+        # Current power level annotation
+        yI2=py(I2_)
+        mp._f("",5.5); mp.set_text_color(100,116,139)
+        mp.set_xy(gx+2,yI2+1)
+        mp.cell(20,3.5,f"I2={I2_*100:.1f}%")
+
+        # ── Scenario lines ──
+        # 1. Défaut (dark gray, dashed)
+        pw_def_end=I2_*(1-dn_)**(N_+N1_)
+        mp.set_draw_color(55,65,81); mp.set_line_width(1.0)
+        mp.set_dash_pattern(dash=3,gap=1.5)
+        mp.line(tx(0),yI2,tx(N_+N1_),py(pw_def_end))
+        mp.set_dash_pattern()
+        mid_t_d=(N_+N1_)*0.62
+        mid_y_d=(yI2+py(pw_def_end))/2
+        mp._f("",5.5); mp.set_text_color(55,65,81)
+        mp.set_xy(tx(mid_t_d)+1,mid_y_d+1)
+        mp.cell(32,3.5,f"Défaut  -{dn_*100:.1f}%/an")
+
+        # 2. Réparation/Revamping/Mix (green, solid)
+        pw_rep_end=I2_*(1-d_)**(N_+N1_)
+        mp.set_draw_color(22,101,52); mp.set_line_width(1.2)
+        mp.line(tx(0),yI2,tx(N_+N1_),py(pw_rep_end))
+        mid_t_r=(N_+N1_)*0.52
+        mid_y_r=(yI2+py(pw_rep_end))/2
+        mp._f("",5.5); mp.set_text_color(22,101,52)
+        mp.set_xy(tx(mid_t_r)-20,mid_y_r-4.5)
+        mp.cell(38,3.5,f"Rep / Rev / Mix  -{d_*100:.2f}%/an")
+
+        # 3. Repowering (red)
+        pw_atN=I2_*(1-dn_)**N_
+        pw_rpw_end=(1+u_)*(1-d_)**N2_
+        mp.set_draw_color(185,28,28); mp.set_line_width(1.0)
+        mp.set_dash_pattern(dash=3,gap=1.5)
+        mp.line(tx(0),yI2,xN,py(pw_atN)); mp.set_dash_pattern()
+        # Vertical arrow up at year N
+        yJF=py(pw_atN); yJT=py(1+u_)
+        mp.set_line_width(1.5); mp.line(xN,yJF,xN,yJT+2)
+        ah=2.5
+        mp.set_line_width(0.8)
+        mp.line(xN,yJT+2,xN-ah,yJT+2+ah); mp.line(xN,yJT+2,xN+ah,yJT+2+ah)
+        mp._f("B",6); mp.set_text_color(185,28,28)
+        mp.set_xy(xN+1.5,(yJF+yJT)/2-2); mp.cell(12,4,f"+{u_*100:.0f}%")
+        # Post-repowering line
+        mp.set_line_width(1.2)
+        mp.line(xN,py(1+u_),tx(N_+N2_),py(pw_rpw_end))
+        mid_t_rp=N_+N2_*0.38
+        mp._f("",5.5); mp.set_text_color(185,28,28)
+        mp.set_xy(tx(mid_t_rp)+1,py(1+u_)-5)
+        mp.cell(32,3.5,f"Repowering  -{d_*100:.2f}%/an")
+
+        # Y-axis label
+        mp._f("",6); mp.set_text_color(71,85,105)
+        for i,ll in enumerate(["Puissance","de la","centrale","nominale"]):
+            mp.set_xy(PL,gy+gh/2-9+i*4.2); mp.cell(lbl_w-1,4,ll,align='C')
+
+        # ── Period bars ──
+        bar_y=gy+gh+3; bh=6.5; gap_b=2.0
+
+        def bar(x,w,rgb,txt,y):
+            mp.set_fill_color(*rgb); mp.rect(x,y,w,bh,'F')
+            mp._f("B",5.5); mp.set_text_color(255,255,255)
+            mp.set_xy(x+1,y+1); mp.cell(w-2,bh-2,txt,align='C')
+
+        # Row 1 — Rep/Rev/Défaut timeline
+        bar(gx,     xN-gx,         (34,197,94),
+            f"EDF OA — {N_} ans — {tarif_:.4f} €/kWh", bar_y)
+        bar(xN,     xN1-xN,        (202,138,4),
+            f"PPA — {N1_} ans — {PPA_:.3f} €/kWh",    bar_y)
+
+        # Row 2 — Repowering timeline
+        bar_y2=bar_y+bh+gap_b
+        mp.set_fill_color(220,225,235); mp.rect(gx,bar_y2,xN-gx,bh,'F')
+        mp._f("",5.5); mp.set_text_color(100,116,139)
+        mp.set_xy(gx+1,bar_y2+1); mp.cell(xN-gx-2,bh-2,f"OA — {N_} ans",align='C')
+        bar(xN,tx(N_+N2_)-xN,(202,138,4),
+            f"PPA Repowering — {N2_} ans — {PPA_:.3f} €/kWh", bar_y2)
+
+        # Year count labels
+        yr_y=bar_y2+bh+1.5
+        mp._f("",5.5); mp.set_text_color(30,41,59)
+        mp.set_xy(gx,yr_y); mp.cell(xN-gx,4,f"{N_} ans",align='C')
+        mp.set_xy(xN,yr_y); mp.cell(xN1-xN,4,f"+ {N1_} ans",align='C')
+        mp.set_xy(xN,yr_y+4); mp.cell(tx(N_+N2_)-xN,4,f"+ {N2_} ans (Repow.)",align='C')
+
+        # Zone labels
+        zl_y=yr_y+8
+        mp._f("",5); mp.set_text_color(100,116,139)
+        mp.set_xy((gx+xN)/2-18,zl_y); mp.cell(36,3.5,"Période OA",align='C')
+        mp.set_xy((xN+xN1)/2-22,zl_y); mp.cell(44,3.5,"Modélisation — 4 scénarios",align='C')
+        if tx(N_+N2_)>xN1+8:
+            mp.set_xy((xN1+tx(N_+N2_))/2-20,zl_y)
+            mp.cell(40,3.5,"Extended — Repowering",align='C')
+
+        mp.set_line_width(0.2)
+        mp.set_y(zl_y+5)
+
+    # ── PAGE 1 : Paramètres + Diagramme ─────────────────────────────────────────
     mp.add_page('P')
     mp._f("B",14); mp.set_text_color(15,23,42)
-    mp.cell(0, 8, "Rapport Financier - Scénarios de Rénovation PV", ln=True); mp.ln(2)
+    mp.cell(0,8,"Rapport Financier - Scénarios de Rénovation PV",ln=True); mp.ln(2)
+    _section("Paramètres du scénario")
+    _params_table(); mp.ln(3)
+    _section("Schéma — Évolution de la puissance par scénario")
+    _draw_diagram(); mp.ln(2)
 
-    mp._f("B",10); mp.set_text_color(15,23,42)
-    mp.cell(0,6,"Paramètres du scénario",ln=True)
-    mp.set_draw_color(203,213,225); mp.line(8,mp.get_y(),mp.w-8,mp.get_y()); mp.ln(2)
-    for i in range(max(len(proj_params), len(fin_params))):
-        bg=(248,250,252) if i%2==0 else (255,255,255); mp.set_fill_color(*bg)
-        if i<len(proj_params):
-            mp.set_text_color(100,116,139); mp._f("",7); mp.cell(lw,5,proj_params[i][0],fill=True)
-            mp.set_text_color(15,23,42); mp._f("B",7); mp.cell(vw,5,proj_params[i][1],fill=True)
-        else: mp.cell(lw+vw,5,"",fill=True)
-        mp.cell(4,5,"")
-        if i<len(fin_params):
-            mp.set_text_color(100,116,139); mp._f("",7); mp.cell(lw,5,fin_params[i][0],fill=True)
-            mp.set_text_color(15,23,42); mp._f("B",7); mp.cell(vw,5,fin_params[i][1],fill=True)
-        mp.ln()
-    mp.ln(4)
-
-    mp._f("B",10); mp.set_text_color(15,23,42)
-    mp.cell(0,6,"Tableau de Synthèse",ln=True)
-    mp.set_draw_color(203,213,225); mp.line(8,mp.get_y(),mp.w-8,mp.get_y()); mp.ln(2)
-    col_lbl_s2 = 46; col_val_s2 = (mp.w-16-col_lbl_s2)/5
-    mp._f("B",7); mp.set_text_color(255,255,255); mp.set_fill_color(15,23,42)
-    mp.cell(col_lbl_s2,6,"Indicateur",fill=True,border=0)
-    for s in STRATS:
-        mp.set_fill_color(*STRAT_COLORS_RGB[s]); mp.cell(col_val_s2,6,LABELS[s],fill=True,border=0,align='C')
-    mp.ln()
-    for i,lbl in enumerate(syn_labels):
-        bg=(248,250,252) if i%2==0 else (255,255,255); mp.set_fill_color(*bg)
-        bold_row = lbl in ("Résultat net cumulé","Δ Trésorerie vs Défaut","ROE incrémental")
-        mp._f("B" if bold_row else "",7); mp.set_text_color(71,85,105)
-        mp.cell(col_lbl_s2,5.5,lbl,fill=True,border=0)
-        mp._f("B" if bold_row else "",7)
-        for s in STRATS:
-            mp.set_text_color(15,23,42); mp.cell(col_val_s2,5.5,syn_val(s,results[s],lbl),fill=True,border=0,align='C')
-        mp.ln()
-
-    # ── Page 2 portrait : Stratégie Rénovation (comparateur) ──
+    # ── PAGE 2 : Stratégie Rénovation + Synthèse Financière + Hypothèses ────────
     mp.add_page('P')
     mp._f("B",12); mp.set_text_color(15,23,42)
     mp.cell(0,7,"Stratégie de Rénovation — Comparatif Cash Flow net de CAPEX",ln=True)
     mp.set_draw_color(203,213,225); mp.line(8,mp.get_y(),mp.w-8,mp.get_y()); mp.ln(2)
+    _strat_ren_table(); mp.ln(4)
+    _section("Synthèse Financière")
+    _syn_table(); mp.ln(4)
+    _section("Hypothèses & Définitions")
+    _hyp_table()
 
-    STRAT_LABELS_FR = {'defaut':'Défaut','repow':'Repowering','rep':'Réparation','rev':'Revamping','mix':'Mix Rép+Rev'}
-    col_lbl_c = 50; col_val_c = (mp.w-16-col_lbl_c)/5
-    # Header
-    mp._f("B",7); mp.set_text_color(255,255,255); mp.set_fill_color(15,23,42)
-    mp.cell(col_lbl_c,6,"Indicateur",fill=True,border=0)
+    # ── PAGES 3+ : Tableaux financiers paysage ───────────────────────────────────
     for s in STRATS:
-        mp.set_fill_color(*STRAT_COLORS_RGB[s])
-        mp.cell(col_val_c,6,STRAT_LABELS_FR[s],fill=True,border=0,align='C')
-    mp.ln()
-
-    Pc,I2,u_=p['Pcentrale'],p['I2'],p['u_']
-    alpha_pct_=int(p['alpha_pct']); u_pct_=int(p['u'])
-    pow_vals_p=[f"{round(Pc*I2)} kWc",f"{round(Pc*(1+u_))} kWc",
-                f"{round(Pc*I2)} kWc",f"{round(Pc)} kWc",f"{round(Pc)} kWc"]
-    ext=rc['ext']
-    ext_vals_p=['—' if ext[s]==0 else f"+{int(ext[s])} ans" for s in STRATS]
-    best_s_c=max(STRATS,key=lambda s:rc['cfTotal'][s])
-
-    comp_rows=[
-        ("Puissance après intervention", pow_vals_p, False, False),
-        ("Extension post-OA",            ext_vals_p, False, False),
-        ("CAPEX",      [fe(p['capex'][s])    for s in STRATS], False, False),
-        ("Revenus OA", [fe(rc['revOA'][s])   for s in STRATS], False, False),
-        ("CF EDF OA",  [fe(rc['cfOA'][s])    for s in STRATS], False, False),
-        ("Revenus post-OA",[fe(rc['revPost'][s]) for s in STRATS], False, False),
-        ("Cash Flow Total",[fe(rc['cfTotal'][s]) for s in STRATS], True, False),
-        ("ΔCCF vs Défaut", [None]+[rc['delta'][s] for s in STRATS if s!='defaut'], True, True),
-        ("% vs Défaut",    [None]+[rc['pct'][s]   for s in STRATS if s!='defaut'], False, True),
-    ]
-    for i,(lbl,vals,bold,is_delta) in enumerate(comp_rows):
-        bg=(248,250,252) if i%2==0 else (255,255,255); mp.set_fill_color(*bg)
-        mp._f("B" if bold else "",7); mp.set_text_color(71,85,105)
-        mp.cell(col_lbl_c,5.5,lbl,fill=True,border=0)
-        for vi,v in enumerate(vals):
-            if is_delta and v is None:
-                mp.set_text_color(100,116,139); mp._f("",7)
-                mp.cell(col_val_c,5.5,"—",fill=True,border=0,align='C')
-            elif is_delta and isinstance(v,float):
-                col=(22,163,74) if v>=0 else (185,28,28)
-                mp.set_text_color(*col); mp._f("B",7)
-                txt=fe(v) if lbl.startswith("ΔCCF") else f"{'+'if v>=0 else ''}{v*100:.1f}%"
-                mp.cell(col_val_c,5.5,txt,fill=True,border=0,align='C')
-            else:
-                mp.set_text_color(15,23,42); mp._f("B" if bold else "",7)
-                mp.cell(col_val_c,5.5,str(v),fill=True,border=0,align='C')
-        mp.ln()
-
-    # ── Stratégie Recommandée (bannière verte) ──
-    best_rec  = max(STRATS, key=lambda s: rc['pct'][s])
-    best_pct  = rc['pct'][best_rec]
-    best_lbl  = STRAT_LABELS_FR[best_rec]
-    sign_pct  = '+' if best_pct >= 0 else ''
-    mp.ln(3)
-    mp.set_fill_color(240,253,244)
-    mp._f("B",9); mp.set_text_color(22,101,52)
-    mp.cell(0,8,
-        f"Stratégie Recommandée : {best_lbl}   —   {sign_pct}{best_pct*100:.1f}% vs Défaut",
-        fill=True, ln=True)
-    if best_rec == 'mix':
-        mp._f("",8); mp.set_text_color(22,101,52)
-        mp.set_fill_color(240,253,244)
-        n_rev_  = round(p['n_rev'])
-        alpha_r = round(p['alpha_rev']*100)
-        pm_fac_ = round(p['Pm_fac'])
-        mp.cell(0,6,
-            f"   Module à façon recommandé : {pm_fac_} Wc   |"
-            f"   Part remplacement : {alpha_r}%   |"
-            f"   Nb modules à remplacer : {n_rev_:,}",
-            fill=True, ln=True)
-
-    # ── Page 3 portrait : Hypothèses & Définitions ──
-    HYP = [
-        ("Réparation",
-         "Restitution de l'intégrité électrique du panneau — ne remet pas à zéro la dégradation naturelle des cellules."),
-        ("Revamping",
-         "Remplacement par des panneaux à façon (format & caractéristiques similaires) — panneaux neufs."),
-        ("Repowering",
-         "Remplacement complet (panneaux, structure, onduleur...) avec uplift de capacité. Arrêt plus long."),
-        ("Mix Rép+Rev",
-         "Panneaux réparables → réparés ; non réparables → remplacés à façon pour revenir à la puissance nominale."),
-        ("Défaut",
-         "Aucune intervention — dégradation accélérée (dn) appliquée chaque année."),
-    ]
-    NOTES = [
-        "Post-OA : valorisation au tarif PPA / agrégateur. Réparation & Revamping : +N1 ans. Repowering : +N2 ans.",
-        "Le scénario Défaut bénéficie également de N1 années post-OA (à dégradation accélérée).",
-        "Les hypothèses financières (CAPEX, emprunt, fiscalité, O&M) sont détaillées dans le tableau de synthèse.",
-    ]
-    mp.add_page('P')
-    mp._f("B",12); mp.set_text_color(15,23,42)
-    mp.cell(0,7,"Hypothèses & Définitions",ln=True)
-    mp.set_draw_color(203,213,225); mp.line(8,mp.get_y(),mp.w-8,mp.get_y()); mp.ln(3)
-
-    col_s, col_d = 32, mp.w-16-32
-    mp._f("B",8); mp.set_fill_color(15,23,42); mp.set_text_color(255,255,255)
-    mp.cell(col_s,7,"Stratégie",fill=True,border=0)
-    mp.cell(col_d,7,"Définition",fill=True,border=0); mp.ln()
-
-    for i,(strat,defn) in enumerate(HYP):
-        bg=(248,250,252) if i%2==0 else (255,255,255)
-        mp.set_fill_color(*bg)
-        x0,y0 = mp.l_margin, mp.get_y()
-        mp.set_xy(x0+col_s, y0)
-        mp._f("",8); mp.set_text_color(71,85,105)
-        mp.multi_cell(col_d,5,defn,fill=True,border=0)
-        y1 = mp.get_y(); row_h = max(y1-y0, 5)
-        mp.set_xy(x0, y0)
-        mp._f("B",8); mp.set_text_color(15,23,42)
-        mp.set_fill_color(*bg)
-        mp.cell(col_s,row_h,strat,fill=True,border=0,align='L')
-        mp.set_y(y1)
-    mp.ln(4)
-
-    mp._f("",7); mp.set_text_color(100,116,139)
-    for note in NOTES:
-        mp.set_x(mp.l_margin)
-        mp.multi_cell(0,4,f"- {note}")
-    mp.ln(2)
-
-    # ── Pages 4-8 landscape ──
-    for s in STRATS:
-        sc    = results[s]; rows = sc['rows']; total_yrs = sc['total_yrs']
-        N2    = int(p['N']); color = STRAT_COLORS_RGB[s]
+        sc=results[s]; rows=sc['rows']; total_yrs=sc['total_yrs']
+        N_oa=int(p['N']); color=STRAT_COLORS_RGB[s]
         mp.add_page('L')
         mp._f("B",12); mp.set_text_color(*color)
         mp.cell(0,7,f"Scénario : {LABELS[s]}",ln=True)
         mp._f("",8); mp.set_text_color(100,116,139)
-        roe_s  = 'N/A' if sc['ROE'] is None else f"{sc['ROE']*100:.1f}%"
-        dscr_s = 'N/A' if sc['dscr_avg'] is None else f"{sc['dscr_avg']:.2f}"
+        roe_s='N/A' if sc['ROE'] is None else f"{sc['ROE']*100:.1f}%"
+        dscr_s='N/A' if sc['dscr_avg'] is None else f"{sc['dscr_avg']:.2f}"
         mp.cell(0,5,
             f"CAPEX : {fe(sc['CAPEX'])}   FP : {fe(sc['equity'])}   "
             f"Dette : {fe(sc['debt'])}   Durée : {total_yrs} ans   "
             f"ROE incr. : {roe_s}   DSCR moy. : {dscr_s}   "
-            f"Δ Trésor. vs Défaut : {fe(sc['cum_incr'])}",ln=True)
+            f"Delta Tresor. vs Défaut : {fe(sc['cum_incr'])}",ln=True)
         mp.ln(1)
-        usable = mp.w-16; cl = 52; cy = (usable-cl)/total_yrs
-        # Year headers
+        usable=mp.w-16; cl=52; cy=(usable-cl)/total_yrs
         mp._f("B",6); mp.set_text_color(255,255,255); mp.set_fill_color(*color)
         mp.cell(cl,6,"Indicateur",fill=True,border=0)
         for r in rows:
-            bg2=(30,58,95) if r['k']<=N2 else (55,65,81); mp.set_fill_color(*bg2)
+            bg2=(30,58,95) if r['k']<=N_oa else (55,65,81); mp.set_fill_color(*bg2)
             mp.cell(cy,6,f"An {r['k']}",fill=True,border=0,align='C')
         mp.ln()
 
-        def mrow(label, fn, head=False, bold=False):
+        def mrow(label,fn,head=False,bold=False):
             if head:
                 mp.set_fill_color(*color); mp._f("B",6); mp.set_text_color(255,255,255)
                 mp.cell(cl,5,label,fill=True,border=0)
@@ -771,18 +886,18 @@ def generate_pdf(p, fin, results, rc):
             for r in rows:
                 v=fn(r)
                 if isinstance(v,float):
-                    rc=(22,163,74) if v>0 else (185,28,28) if v<0 else (100,116,139)
-                    mp.set_text_color(*rc); v=fe(v)
+                    tc=(22,163,74) if v>0 else (185,28,28) if v<0 else (100,116,139)
+                    mp.set_text_color(*tc); v=fe(v)
                 else: mp.set_text_color(15,23,42)
                 mp.cell(cy,4.8,str(v),fill=True,border=0,align='R')
             mp.ln()
 
         if sc['debt']>0:
             mrow("── Échéancier emprunt",None,head=True)
-            mrow("Capital remboursé",  lambda r:r['loan']['principal'])
-            mrow("Intérêts",           lambda r:r['loan']['interest'])
-            mrow("Total annuité",      lambda r:r['loan']['annuity'],bold=True)
-            mrow("Solde restant",      lambda r:r['loan']['balance'])
+            mrow("Capital remboursé",lambda r:r['loan']['principal'])
+            mrow("Intérêts",         lambda r:r['loan']['interest'])
+            mrow("Total annuité",    lambda r:r['loan']['annuity'],bold=True)
+            mrow("Solde restant",    lambda r:r['loan']['balance'])
         mrow("── Compte de résultat",None,head=True)
         mrow("Tarif (€/kWh)",       lambda r:f"{r['tarif_k']:.4f}")
         mrow("Production (MWh)",    lambda r:f"{r['prod']/1000:.0f}")
@@ -804,7 +919,7 @@ def generate_pdf(p, fin, results, rc):
         mrow("Rembt. dette",        lambda r:-r['repay'])
         mrow("Trésorerie annuelle", lambda r:r['ann_treas'],bold=True)
         mrow("Trésorerie cumulée",  lambda r:r['cum_treas'],bold=True)
-        mrow("Δ Tréso. vs Défaut",  lambda r:r['cum_incr'],bold=True)
+        mrow("Delta Tréso. vs Défaut",lambda r:r['cum_incr'],bold=True)
         mrow("DSCR incrémental",    lambda r:f"{r['dscr']:.2f}" if r['dscr'] is not None else '—',bold=True)
 
     return bytes(mp.output())
