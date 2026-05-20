@@ -613,7 +613,7 @@ def generate_pdf(p, fin, results, rc):
     # ── Page 2 portrait : Stratégie Rénovation (comparateur) ──
     mp.add_page('P')
     mp._f("B",12); mp.set_text_color(15,23,42)
-    mp.cell(0,7,"Stratégie Rénovation — Comparatif Cash Flow",ln=True)
+    mp.cell(0,7,"Stratégie de Rénovation — Comparatif Cash Flow net de CAPEX",ln=True)
     mp.set_draw_color(203,213,225); mp.line(8,mp.get_y(),mp.w-8,mp.get_y()); mp.ln(2)
 
     STRAT_LABELS_FR = {'defaut':'Défaut','repow':'Repowering','rep':'Réparation','rev':'Revamping','mix':'Mix Rép+Rev'}
@@ -662,6 +662,29 @@ def generate_pdf(p, fin, results, rc):
                 mp.set_text_color(15,23,42); mp._f("B" if bold else "",7)
                 mp.cell(col_val_c,5.5,str(v),fill=True,border=0,align='C')
         mp.ln()
+
+    # ── Stratégie Recommandée (bannière verte) ──
+    best_rec  = max(STRATS, key=lambda s: rc['pct'][s])
+    best_pct  = rc['pct'][best_rec]
+    best_lbl  = STRAT_LABELS_FR[best_rec]
+    sign_pct  = '+' if best_pct >= 0 else ''
+    mp.ln(3)
+    mp.set_fill_color(240,253,244)
+    mp._f("B",9); mp.set_text_color(22,101,52)
+    mp.cell(0,8,
+        f"Stratégie Recommandée : {best_lbl}   —   {sign_pct}{best_pct*100:.1f}% vs Défaut",
+        fill=True, ln=True)
+    if best_rec == 'mix':
+        mp._f("",8); mp.set_text_color(22,101,52)
+        mp.set_fill_color(240,253,244)
+        n_rev_  = round(p['n_rev'])
+        alpha_r = round(p['alpha_rev']*100)
+        pm_fac_ = round(p['Pm_fac'])
+        mp.cell(0,6,
+            f"   Module à façon recommandé : {pm_fac_} Wc   |"
+            f"   Part remplacement : {alpha_r}%   |"
+            f"   Nb modules à remplacer : {n_rev_:,}",
+            fill=True, ln=True)
 
     # ── Page 3 portrait : Hypothèses & Définitions ──
     HYP = [
