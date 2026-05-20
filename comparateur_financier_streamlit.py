@@ -663,7 +663,56 @@ def generate_pdf(p, fin, results, rc):
                 mp.cell(col_val_c,5.5,str(v),fill=True,border=0,align='C')
         mp.ln()
 
-    # ── Pages 3-7 landscape ──
+    # ── Page 3 portrait : Hypothèses & Définitions ──
+    HYP = [
+        ("Réparation",
+         "Restitution de l'intégrité électrique du panneau — ne remet pas à zéro la dégradation naturelle des cellules."),
+        ("Revamping",
+         "Remplacement par des panneaux à façon (format & caractéristiques similaires) — panneaux neufs."),
+        ("Repowering",
+         "Remplacement complet (panneaux, structure, onduleur...) avec uplift de capacité. Arrêt plus long."),
+        ("Mix Rép+Rev",
+         "Panneaux réparables → réparés ; non réparables → remplacés à façon pour revenir à la puissance nominale."),
+        ("Défaut",
+         "Aucune intervention — dégradation accélérée (dn) appliquée chaque année."),
+    ]
+    NOTES = [
+        "Post-OA : valorisation au tarif PPA / agrégateur. Réparation & Revamping : +N1 ans. Repowering : +N2 ans.",
+        "Le scénario Défaut bénéficie également de N1 années post-OA (à dégradation accélérée).",
+        "Les hypothèses financières (CAPEX, emprunt, fiscalité, O&M) sont détaillées dans le tableau de synthèse.",
+    ]
+    mp.add_page('P')
+    mp._f("B",12); mp.set_text_color(15,23,42)
+    mp.cell(0,7,"Hypothèses & Définitions",ln=True)
+    mp.set_draw_color(203,213,225); mp.line(8,mp.get_y(),mp.w-8,mp.get_y()); mp.ln(3)
+
+    col_s, col_d = 32, mp.w-16-32
+    mp._f("B",8); mp.set_fill_color(15,23,42); mp.set_text_color(255,255,255)
+    mp.cell(col_s,7,"Stratégie",fill=True,border=0)
+    mp.cell(col_d,7,"Définition",fill=True,border=0); mp.ln()
+
+    for i,(strat,defn) in enumerate(HYP):
+        bg=(248,250,252) if i%2==0 else (255,255,255)
+        mp.set_fill_color(*bg)
+        x0,y0 = mp.l_margin, mp.get_y()
+        mp.set_xy(x0+col_s, y0)
+        mp._f("",8); mp.set_text_color(71,85,105)
+        mp.multi_cell(col_d,5,defn,fill=True,border=0)
+        y1 = mp.get_y(); row_h = max(y1-y0, 5)
+        mp.set_xy(x0, y0)
+        mp._f("B",8); mp.set_text_color(15,23,42)
+        mp.set_fill_color(*bg)
+        mp.cell(col_s,row_h,strat,fill=True,border=0,align='L')
+        mp.set_y(y1)
+    mp.ln(4)
+
+    mp._f("",7); mp.set_text_color(100,116,139)
+    for note in NOTES:
+        mp.set_x(mp.l_margin)
+        mp.multi_cell(0,4,f"- {note}")
+    mp.ln(2)
+
+    # ── Pages 4-8 landscape ──
     for s in STRATS:
         sc    = results[s]; rows = sc['rows']; total_yrs = sc['total_yrs']
         N2    = int(p['N']); color = STRAT_COLORS_RGB[s]
@@ -860,3 +909,18 @@ try:
     )
 except Exception as e:
     st.warning(f"PDF indisponible : {e}")
+
+with st.expander("📋 Hypothèses & Définitions"):
+    st.markdown("""
+| Stratégie | Définition |
+|---|---|
+| **Réparation** | Restitution de l'intégrité électrique du panneau — ne remet pas à zéro la dégradation naturelle des cellules. |
+| **Revamping** | Remplacement par des panneaux «à façon» (format & caractéristiques similaires) — panneaux neufs. |
+| **Repowering** | Remplacement complet (panneaux, structure, onduleur…) avec uplift de capacité. Arrêt plus long. |
+| **Mix Rép+Rev** | Panneaux réparables → réparés ; non réparables → remplacés à façon pour revenir à la puissance nominale. |
+| **Défaut** | Aucune intervention — dégradation accélérée (dn) appliquée chaque année. |
+
+- Post-OA : valorisation au tarif PPA / agrégateur. Réparation & Revamping : +N1 ans. Repowering : +N2 ans.
+- Le scénario Défaut bénéficie également de N1 années post-OA (à dégradation accélérée).
+- Les hypothèses financières (CAPEX, emprunt, fiscalité, O&M) sont détaillées dans le tableau de synthèse.
+""")
