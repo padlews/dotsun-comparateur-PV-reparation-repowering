@@ -760,73 +760,82 @@ def generate_pdf(p, fin, results, rc):
         mp.set_xy(gx+2, yNom-4.5)
         mp.cell(50,4,f"Puissance nominale  {round(Pc_)} kWc")
 
+        # Helper: draw label with white background so it floats above lines
+        def lbl(x, y, txt, col_rgb):
+            tw = mp.get_string_width(txt)
+            mp.set_fill_color(255,255,255)
+            mp.rect(x-0.8, y-0.5, tw+3, 4.2, 'F')
+            mp._f("",5.5); mp.set_text_color(*col_rgb)
+            mp.set_xy(x, y); mp.cell(tw+2, 3.8, txt)
+
         # ── Common "avant projet" curve (black) — Pc at t=0 → I2 at t=Y ──
-        mp.set_draw_color(30,41,59); mp.set_line_width(1.8)
+        mp.set_draw_color(30,41,59); mp.set_line_width(0.6)
         mp.line(gx, py(1.0), xY, yI2)
-        mp._f("",5.5); mp.set_text_color(30,41,59)
-        mp.set_xy(gx+2, (py(1.0)+yI2)/2)
-        mp.cell(38,3.5,f"Avant projet  -{d_*100:.2f}%/an")
+        lbl(gx+3, gy+2, f"Avant projet  -{d_*100:.2f}%/an", (30,41,59))
 
         # I2 annotation at decision point
         mp._f("",5.5); mp.set_text_color(100,116,139)
         mp.set_xy(xY+1.5, yI2+0.5)
         mp.cell(22,3.5,f"I2={I2_*100:.1f}%")
 
-        # ── Post-decision scenario lines ──
+        # ── Post-decision scenario lines (drawn first, labels on top) ──
 
         # 1. Défaut (dark gray, dashed) — from I2, declines at dn%/an
         pw_def_end = I2_ * (1-dn_)**(N_+N1_)
-        mp.set_draw_color(55,65,81); mp.set_line_width(1.0)
-        mp.set_dash_pattern(dash=3,gap=1.5)
+        mp.set_draw_color(55,65,81); mp.set_line_width(0.5)
+        mp.set_dash_pattern(dash=2.5,gap=1.5)
         mp.line(xY, yI2, xYN1, py(pw_def_end))
         mp.set_dash_pattern()
-        mid_def = Y_ + (N_+N1_)*0.58
-        mp._f("",5.5); mp.set_text_color(55,65,81)
-        mp.set_xy(tx(mid_def)+1, (yI2+py(pw_def_end))/2+1)
-        mp.cell(32,3.5,f"Défaut  -{dn_*100:.1f}%/an")
 
         # 2. Réparation (olive green, solid) — from I2, declines at d%/an
         pw_rep_end = I2_ * (1-d_)**(N_+N1_)
-        mp.set_draw_color(22,101,52); mp.set_line_width(1.2)
+        mp.set_draw_color(22,101,52); mp.set_line_width(0.5)
         mp.line(xY, yI2, xYN1, py(pw_rep_end))
-        mid_rep = Y_ + (N_+N1_)*0.40
-        mp._f("",5.5); mp.set_text_color(22,101,52)
-        mp.set_xy(tx(mid_rep)-24, (yI2+py(pw_rep_end))/2-4.5)
-        mp.cell(30,3.5,f"Réparation  -{d_*100:.2f}%/an")
 
         # 3. Revamping/Mix (amber) — RESET to Pc=1.0 at decision, then d%/an
         pw_rev_end = 1.0 * (1-d_)**(N_+N1_)
         y_rev = py(1.0)
-        mp.set_draw_color(180,120,0); mp.set_line_width(1.0)
-        mp.line(xY-0.8, yI2, xY-0.8, y_rev+2.5)   # reset arrow shaft (offset left)
-        ah=2.0
-        mp.line(xY-0.8, y_rev+2.5, xY-0.8-ah, y_rev+2.5+ah)
-        mp.line(xY-0.8, y_rev+2.5, xY-0.8+ah, y_rev+2.5+ah)
-        mp.set_line_width(1.2)
+        mp.set_draw_color(180,120,0); mp.set_line_width(0.4)
+        mp.line(xY-0.8, yI2, xY-0.8, y_rev+2.0)        # reset arrow shaft
+        ah=1.8
+        mp.line(xY-0.8, y_rev+2.0, xY-0.8-ah, y_rev+2.0+ah)
+        mp.line(xY-0.8, y_rev+2.0, xY-0.8+ah, y_rev+2.0+ah)
+        mp.set_line_width(0.5)
         mp.line(xY, y_rev, xYN1, py(pw_rev_end))
-        mid_rev = Y_ + (N_+N1_)*0.28
-        mp._f("",5.5); mp.set_text_color(180,120,0)
-        mp.set_xy(tx(mid_rev)-4, y_rev-5.5)
-        mp.cell(36,3.5,f"Rev / Mix  -{d_*100:.2f}%/an")
 
         # 4. Repowering (red) — RESET to Pc*(1+u) at decision, then d%/an
         pw_rpw_end = (1+u_) * (1-d_)**N2_
         y_rpw = py(1+u_)
-        mp.set_draw_color(185,28,28); mp.set_line_width(1.5)
-        mp.line(xY+0.8, yI2, xY+0.8, y_rpw+2.5)   # reset arrow shaft (offset right)
-        ah=2.5
-        mp.set_line_width(0.8)
-        mp.line(xY+0.8, y_rpw+2.5, xY+0.8-ah, y_rpw+2.5+ah)
-        mp.line(xY+0.8, y_rpw+2.5, xY+0.8+ah, y_rpw+2.5+ah)
+        mp.set_draw_color(185,28,28); mp.set_line_width(0.4)
+        mp.line(xY+0.8, yI2, xY+0.8, y_rpw+2.0)        # reset arrow shaft
+        ah=1.8
+        mp.line(xY+0.8, y_rpw+2.0, xY+0.8-ah, y_rpw+2.0+ah)
+        mp.line(xY+0.8, y_rpw+2.0, xY+0.8+ah, y_rpw+2.0+ah)
+        mp.set_line_width(0.5)
+        mp.line(xY, y_rpw, xYN2, py(pw_rpw_end))
+
+        # ── Labels above each line (after all lines drawn) ──
+        # Position labels at ~60% of the post-decision run, above each line
+        frac = 0.60
+        t_d  = Y_ + (N_+N1_) * frac
+        t_r  = Y_ + (N_+N1_) * frac
+        t_rv = Y_ + (N_+N1_) * frac
+        t_rp = Y_ + N_ + N2_ * frac
+
+        y_d_mid  = py(I2_  * (1-dn_)**((N_+N1_)*frac))
+        y_r_mid  = py(I2_  * (1-d_) **((N_+N1_)*frac))
+        y_rv_mid = py(1.0  * (1-d_) **((N_+N1_)*frac))
+        y_rp_mid = py((1+u_)*(1-d_) **(N_ + N2_*frac))
+
+        lbl(tx(t_d)+1,  y_d_mid -5.5, f"Défaut  -{dn_*100:.1f}%/an",       (55,65,81))
+        lbl(tx(t_r)-35, y_r_mid -5.5, f"Réparation  -{d_*100:.2f}%/an",    (22,101,52))
+        lbl(tx(t_rv)-2, y_rv_mid-5.5, f"Rev / Mix  -{d_*100:.2f}%/an",     (180,120,0))
+        lbl(tx(t_rp)+1, y_rp_mid-5.5, f"Repowering  -{d_*100:.2f}%/an",    (185,28,28))
+
+        # +u% annotation on repowering arrow
         mp._f("B",6); mp.set_text_color(185,28,28)
         mp.set_xy(xY+2, (yI2+y_rpw)/2-2)
         mp.cell(12,4,f"+{u_*100:.0f}%")
-        mp.set_line_width(1.2)
-        mp.line(xY, y_rpw, xYN2, py(pw_rpw_end))
-        mid_rpw = Y_ + N_ + N2_*0.42
-        mp._f("",5.5); mp.set_text_color(185,28,28)
-        mp.set_xy(tx(mid_rpw)+1, y_rpw-5.5)
-        mp.cell(34,3.5,f"Repowering  -{d_*100:.2f}%/an")
 
         # Y-axis labels
         mp._f("",6); mp.set_text_color(71,85,105)
