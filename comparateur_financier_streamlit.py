@@ -11,13 +11,13 @@ st.set_page_config(page_title="DOTSun — Tableaux Financiers PV",
 
 # ── Presets ───────────────────────────────────────────────────────────────────
 PRESETS = {
-    "s1": dict(n=40000,Pm=300,H=1200,Y=10,d=0.40,dn=6.0,N=10,tarif=0.0818,PPA=0.03,
+    "s1": dict(n=40000,Pm=300,H=1200,Y=10,d=0.40,dn=6.0,eff_iv=0.0,N=10,tarif=0.0818,PPA=0.03,
                N1=5,N2=10,Crep=25,Cdm=4,Cde=15,Cfac=0.25,Crev=0.5,
                Down_rep=1.0,Down_repow=8.0,u=10.0,alpha_pct=85,
                equity_pct=20.0,loan_dur=10,int_rate=4.0,infl_rate=2.0,
                tax_rate=25.0,maint_pct=5.0,opex_pct=2.0,ins_pct=1.5,
                rent=10000.0,amort_dur=10,treas_rate=1.0),
-    "s2": dict(n=4304,Pm=195,H=1180,Y=14,d=0.45,dn=8.0,N=6,tarif=0.75,PPA=0.03,
+    "s2": dict(n=4304,Pm=195,H=1180,Y=14,d=0.45,dn=8.0,eff_iv=0.0,N=6,tarif=0.75,PPA=0.03,
                N1=5,N2=15,Crep=30,Cdm=5,Cde=18,Cfac=0.30,Crev=0.70,
                Down_rep=1.0,Down_repow=8.0,u=10.0,alpha_pct=80,
                equity_pct=20.0,loan_dur=10,int_rate=4.0,infl_rate=2.0,
@@ -42,7 +42,8 @@ def get_params():
     Y, u = float(p['Y']), float(p['u']) / 100
     alpha_rep = float(p['alpha_pct']) / 100
     Pcentrale = n * Pm / 1000
-    I2 = (1 - d) ** Y
+    eff_iv = float(p.get('eff_iv', 0.0))
+    I2 = (eff_iv / 100) if eff_iv > 0 else (1 - d) ** Y
     alpha_rev = 1 - alpha_rep
     P_res_rep = alpha_rep * n * Pm * I2 / 1000
     gap_kWc = max(0.0, Pcentrale - P_res_rep)
@@ -494,7 +495,8 @@ def generate_pdf(p, fin, results, rc):
         ("Y — Âge (ans)", f"{p['Y']:.0f}"),
         ("d — Dégr. normale (%/an)", f"{p['d']:.2f}%"),
         ("dn — Dégr. Défaut (%/an)", f"{p['dn']:.1f}%"),
-        ("I2 — Efficacité", f"{p['I2']*100:.2f}%"),
+        ("Eff. actuelle (Eff-IV)" if float(p.get('eff_iv',0))>0 else "Eff. calculée (d×Y)",
+         f"{p['I2']*100:.2f}% *"),
         ("N — Années OA", f"{int(p['N'])}"),
         ("Tarif OA (€/kWh)", f"{p['tarif']:.4f}"),
         ("PPA post-OA (€/kWh)", f"{p['PPA']:.3f}"),
@@ -1007,6 +1009,20 @@ with st.sidebar:
     st.markdown("#### Dégradation")
     st.number_input("d — Normale (%/an)", min_value=0.0, max_value=5.0, step=0.05, format="%.2f", key="fp_d")
     st.number_input("dn — Accélérée Défaut (%/an)", min_value=0.0, max_value=30.0, step=0.5, format="%.1f", key="fp_dn")
+    st.number_input(
+        "Eff-IV — Efficacité réelle mesurée (%)",
+        min_value=0.0, max_value=100.0, step=0.1, format="%.1f",
+        key="fp_eff_iv",
+        help="Efficacité réelle mesurée par courbe IV sur site. Laisser à 0 pour utiliser la valeur calculée (d × Y).",
+    )
+    _d_disp  = st.session_state.get("fp_d", 0.40)
+    _Y_disp  = st.session_state.get("fp_Y", 10.0)
+    _iv_disp = st.session_state.get("fp_eff_iv", 0.0)
+    _i2_calc = (1 - _d_disp / 100) ** _Y_disp * 100
+    if _iv_disp > 0:
+        st.caption(f"▶ Efficacité utilisée : **{_iv_disp:.1f}%** *(mesure IV)*")
+    else:
+        st.caption(f"▶ Efficacité calculée : **{_i2_calc:.1f}%** *(d={_d_disp:.2f}%, Y={_Y_disp:.0f} ans)*")
 
     st.markdown("#### Contrat & Revenus")
     st.number_input("N — Années restantes OA", min_value=1.0, max_value=20.0, step=1.0, key="fp_N")
