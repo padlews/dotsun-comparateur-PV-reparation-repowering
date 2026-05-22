@@ -16,11 +16,11 @@ st.set_page_config(
 
 # ── Presets ───────────────────────────────────────────────────────────────────
 PRESETS = {
-    "s1": dict(n=40000, Pm=300.0, H=1200.0, Y=10.0, d=0.4, dn=6.0,
+    "s1": dict(n=40000, Pm=300.0, H=1200.0, Y=10.0, d=0.4, dn=6.0, eff_iv=0.0,
                N=10.0, tarif=0.0818, PPA=0.03, N1=5.0, N2=10.0,
                Crep=25.0, Cdm=4.0, Cde=15.0, Cfac=0.25, Crev=0.5,
                Down_rep=1.0, Down_repow=8.0, u=10.0, alpha_pct=85.0),
-    "s2": dict(n=4304, Pm=195.0, H=1180.0, Y=14.0, d=0.45, dn=8.0,
+    "s2": dict(n=4304, Pm=195.0, H=1180.0, Y=14.0, d=0.45, dn=8.0, eff_iv=0.0,
                N=6.0, tarif=0.75, PPA=0.03, N1=5.0, N2=15.0,
                Crep=30.0, Cdm=5.0, Cde=18.0, Cfac=0.30, Crev=0.70,
                Down_rep=1.0, Down_repow=8.0, u=10.0, alpha_pct=80.0),
@@ -62,8 +62,9 @@ def compute(p):
     u          = float(p["u"]) / 100.0
     alpha_rep  = float(p["alpha_pct"]) / 100.0
 
+    eff_iv    = float(p.get("eff_iv", 0.0))
     Pcentrale = n * Pm / 1000.0
-    I2        = (1.0 - d) ** Y
+    I2        = (eff_iv / 100.0) if eff_iv > 0 else (1.0 - d) ** Y
     alpha_rev = 1.0 - alpha_rep
     P_res_rep = alpha_rep * n * Pm * I2 / 1000.0
     gap_kWc   = max(0.0, Pcentrale - P_res_rep)
@@ -266,7 +267,8 @@ def generate_pdf(params, r, alpha_pct):
         ("Âge centrale Y (ans)",                 f"{params['Y']:.0f}"),
         ("Dégradation normale d (%/an)",         f"{params['d']:.2f}%"),
         ("Dégradation accélérée dn (%/an)",      f"{params['dn']:.1f}%"),
-        ("Efficacité actuelle I2",               f"{r['I2']*100:.2f}%"),
+        ("Eff. actuelle (Eff-IV)" if float(params.get('eff_iv', 0)) > 0 else "Eff. calculée (d×Y)",
+                                                 f"{r['I2']*100:.2f}%"),
         ("Années restantes OA N",                f"{int(params['N'])}"),
         ("Tarif EDF OA p (€/kWh)",          f"{params['tarif']:.4f}"),
         ("Tarif PPA post-OA (€/kWh)",       f"{params['PPA']:.3f}"),
@@ -490,7 +492,11 @@ with st.sidebar:
     n   = st.number_input("n — Nombre de panneaux",     min_value=1.0,   step=100.0, format="%.0f", key="p_n")
     Pm  = st.number_input("Pm — Puissance/panneau (Wc)",min_value=1.0,   step=5.0,   format="%.0f", key="p_Pm")
     Pcentrale_disp = n * Pm / 1000.0
-    I2_preview     = (1.0 - st.session_state.get("p_d", 0.4) / 100.0) ** st.session_state.get("p_Y", 10.0)
+    _iv_prev = st.session_state.get("p_eff_iv", 0.0)
+    if _iv_prev and _iv_prev > 0:
+        I2_preview = _iv_prev / 100.0
+    else:
+        I2_preview = (1.0 - st.session_state.get("p_d", 0.4) / 100.0) ** st.session_state.get("p_Y", 10.0)
     st.info(f"**Pcentrale** = {Pcentrale_disp:,.0f} kWc  ·  **I₂** = {I2_preview*100:.2f} %")
     H   = st.number_input("H — Productible (kWh/kWc/an)", min_value=500.0, max_value=2500.0, step=10.0, format="%.0f", key="p_H")
     Y   = st.number_input("Y — Âge de la centrale (ans)", min_value=0.0,   max_value=30.0,  step=1.0,  key="p_Y")
@@ -499,6 +505,20 @@ with st.sidebar:
     st.markdown("#### Dégradation")
     d   = st.number_input("d — Dégradation normale (%/an)",           min_value=0.0, max_value=5.0,  step=0.05, format="%.2f", key="p_d")
     dn  = st.number_input("dn — Dégradation accélérée Défaut (%/an)", min_value=0.0, max_value=30.0, step=0.5,  format="%.1f", key="p_dn")
+    st.number_input(
+        "Eff-IV — Efficacité réelle mesurée (%)",
+        min_value=0.0, max_value=100.0, step=0.1, format="%.1f",
+        key="p_eff_iv",
+        help="Efficacité réelle mesurée par courbe IV sur site. Laisser à 0 pour utiliser la valeur calculée (1-d)^Y.",
+    )
+    _d_disp  = st.session_state.get("p_d", 0.40)
+    _Y_disp  = st.session_state.get("p_Y", 10.0)
+    _iv_disp = st.session_state.get("p_eff_iv", 0.0)
+    _i2_calc = (1 - _d_disp / 100) ** _Y_disp * 100
+    if _iv_disp > 0:
+        st.caption(f"▶ Efficacité utilisée : **{_iv_disp:.1f}%** *(mesure IV)*")
+    else:
+        st.caption(f"▶ Efficacité calculée : **{_i2_calc:.1f}%** *(d={_d_disp:.2f}%, Y={_Y_disp:.0f} ans)*")
 
     # ── Contrat
     st.markdown("#### Contrat & Revenus")

@@ -195,6 +195,17 @@ HTML = """<!DOCTYPE html>
         <input type="number" id="dn" min="0" max="30" step="0.5" value="6" oninput="recalc()">
       </div>
     </div>
+    <div class="field-row">
+      <div class="field">
+        <label><span class="sym">Eff-IV</span> — Efficacité réelle mesurée <span class="unit">%</span></label>
+        <input type="number" id="eff_iv" min="0" max="100" step="0.1" value="0" oninput="recalc()"
+               title="Efficacité mesurée par courbe IV sur site. Laisser à 0 pour utiliser la valeur calculée (1-d)^Y.">
+      </div>
+      <div class="field">
+        <label style="color:#64748b;font-size:10px">Efficacité utilisée</label>
+        <div class="computed-val" id="disp-eff-caption" style="font-size:10px;color:#94a3b8;padding-top:2px">▶ calculée auto</div>
+      </div>
+    </div>
 
     <div class="section-label">Contrat &amp; revenus</div>
 
@@ -454,12 +465,12 @@ HTML = """<!DOCTYPE html>
 // ─── PRESETS ──────────────────────────────────────────────────────────────────
 const PRESETS = {
   s1: { label: "Scénario 1",
-        n: 40000, Pm: 300,   H: 1200, Y: 10, d: 0.4,  dn: 6,
+        n: 40000, Pm: 300,   H: 1200, Y: 10, d: 0.4,  dn: 6, eff_iv: 0,
         N: 10,  p: 0.0818, PPA: 0.03, N1: 5, N2: 10,
         Crep: 25, Cdm: 4,  Cde: 15,  Cfac: 0.25, Crev: 0.5,
         Down_rep: 1, Down_repow: 8, u: 10, alpha_rep: 0.85 },
   s2: { label: "Scénario 2",
-        n: 4304, Pm: 195,   H: 1180, Y: 14, d: 0.45, dn: 6,
+        n: 4304, Pm: 195,   H: 1180, Y: 14, d: 0.45, dn: 6, eff_iv: 0,
         N: 6,   p: 0.75,   PPA: 0.03, N1: 0, N2: 15,
         Crep: 30, Cdm: 5,  Cde: 18,  Cfac: 0.30, Crev: 0.70,
         Down_rep: 1, Down_repow: 8, u: 10, alpha_rep: 0.80 }
@@ -476,7 +487,7 @@ function loadPreset(key) {
   }
   const p = PRESETS[key];
   if (!p) return;
-  const fields = ['n','Pm','H','Y','d','dn','N','p','PPA','N1','N2',
+  const fields = ['n','Pm','H','Y','d','dn','eff_iv','N','p','PPA','N1','N2',
                   'Crep','Cdm','Cde','Cfac','Crev','Down_rep','Down_repow','u','alpha_rep'];
   fields.forEach(f => { const el = document.getElementById(f); if (el) el.value = p[f]; });
   document.getElementById('alpha_rep_slider').value = Math.round(p.alpha_rep * 100);
@@ -529,8 +540,9 @@ function compute() {
   const u         = v('u')  / 100;   // input in %, convert to decimal
   const alpha_rep = v('alpha_rep');
 
+  const eff_iv    = v('eff_iv');
   const Pcentrale = n * Pm / 1000;                    // kWc
-  const I2        = Math.pow(1 - d, Y);               // efficiency at intervention
+  const I2        = eff_iv > 0 ? (eff_iv / 100) : Math.pow(1 - d, Y);
   const alpha_rev = 1 - alpha_rep;
 
   // Mix: restore nominal power with à-façon panels
@@ -644,6 +656,17 @@ function updateUI(r) {
   $('kpi-Pcentrale').textContent = new Intl.NumberFormat('fr-FR').format(Math.round(Pcentrale));
   $('kpi-I2').textContent        = (I2 * 100).toFixed(1) + ' %';
   $('kpi-Y').textContent         = v('Y');
+
+  // Eff-IV caption
+  const eff_iv_disp = v('eff_iv');
+  const i2_calc     = Math.pow(1 - v('d') / 100, v('Y')) * 100;
+  if (eff_iv_disp > 0) {
+    $('disp-eff-caption').textContent = '▶ Mesure IV : ' + eff_iv_disp.toFixed(1) + '%';
+    $('disp-eff-caption').style.color = '#f59e0b';
+  } else {
+    $('disp-eff-caption').textContent = '▶ Calculée : ' + i2_calc.toFixed(1) + '% (d=' + v('d').toFixed(2) + '%, Y=' + Math.round(v('Y')) + ' ans)';
+    $('disp-eff-caption').style.color = '#94a3b8';
+  }
   const prodBase = Pcentrale * I2 * v('H');
   $('kpi-prod').textContent = (prodBase / 1000).toFixed(0);
   $('kpi-rev').textContent  = (prodBase * v('p') / 1000).toFixed(0);
