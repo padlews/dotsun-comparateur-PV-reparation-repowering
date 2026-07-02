@@ -557,7 +557,7 @@ function compute() {
     rep    : n * (Crep + Cdm),
     rev    : n * (Pm * Cfac + Cdm),
     repow  : n * Cde + Pcentrale * 1000 * (1 + u) * Crev,
-    mix    : alpha_rep * n * (Crep + Cdm) + gap_kWc * 1000 * Cfac
+    mix    : alpha_rep * n * (Crep + Cdm) + gap_kWc * 1000 * Cfac + n_rev * Cdm
   };
 
   // ── Annual power (kWc) at year k (1-indexed, continuous from intervention) ──

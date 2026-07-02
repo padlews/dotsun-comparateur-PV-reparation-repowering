@@ -76,7 +76,7 @@ def compute(p):
         "rep":    n * (Crep + Cdm),
         "rev":    n * (Pm * Cfac + Cdm),
         "repow":  n * Cde + Pcentrale * 1000.0 * (1.0 + u) * Crev,
-        "mix":    alpha_rep * n * (Crep + Cdm) + gap_kWc * 1000.0 * Cfac,
+        "mix":    alpha_rep * n * (Crep + Cdm) + gap_kWc * 1000.0 * Cfac + n_rev * Cdm,
     }
 
     def power(s, k):

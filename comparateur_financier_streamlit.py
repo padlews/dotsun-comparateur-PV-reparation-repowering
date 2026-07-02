@@ -54,7 +54,7 @@ def get_params():
         'rep':    n * (float(p['Crep']) + float(p['Cdm'])),
         'rev':    n * (Pm * float(p['Cfac']) + float(p['Cdm'])),
         'repow':  n * float(p['Cde']) + Pcentrale * 1000 * (1+u) * float(p['Crev']),
-        'mix':    alpha_rep * n * (float(p['Crep']) + float(p['Cdm'])) + gap_kWc * 1000 * float(p['Cfac']),
+        'mix':    alpha_rep * n * (float(p['Crep']) + float(p['Cdm'])) + gap_kWc * 1000 * float(p['Cfac']) + n_rev * float(p['Cdm']),
     }
     p.update(Pcentrale=Pcentrale, I2=I2, alpha_rev=alpha_rev, gap_kWc=gap_kWc,
              n_rev=n_rev, Pm_fac=Pm_fac, capex=capex,
