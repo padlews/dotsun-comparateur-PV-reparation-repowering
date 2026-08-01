@@ -1094,7 +1094,7 @@ k2.metric("Efficacité I₂", f"{p['I2']*100:.1f}%", f"après {int(p['Y'])} ans"
 k3.metric("Gap kWc", f"{p['gap_kWc']:.0f} kWc")
 _pm_repow = round(float(p['Pm']) * (1 + p['u_']))
 st.markdown(
-    f'<div style="font-size:11px;color:#64748b;margin-top:-6px;margin-bottom:10px">'
+    f'<div style="font-size:13px;color:#64748b;margin-top:-6px;margin-bottom:10px">'
     f'Panneaux neufs <b>Repowering</b> : {_pm_repow} Wc'
     f'&nbsp;&nbsp;|&nbsp;&nbsp;'
     f'Panneaux à façon <b>Revamping</b> : {round(p["Pm_fac_rev"])} Wc'
