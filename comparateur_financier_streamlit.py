@@ -936,12 +936,12 @@ def generate_pdf(p, fin, results, rc):
     _tot_rev   = round(p['Pc_rev'])
     _tot_mix   = round(p['n_rev'] * p['Pm_fac_mix'] / 1000)
     _rows_mod = [
-        ("Panneaux neufs (Repowering)",  (185,28,28), f"{_pm_repow} Wc",
-         f"{int(p['n']):,}",             f"{_tot_repow} kWc"),
-        ("Panneaux a facon (Revamping)", (30,58,95),  f"{_pm_rev} Wc",
-         f"{int(p['n']):,}",             f"{_tot_rev} kWc"),
-        ("Panneaux a facon (Mix)",       (146,64,14), f"{_pm_mix} Wc",
-         f"{round(p['n_rev']):,}",       f"{_tot_mix} kWc"),
+        ("Panneaux neufs (Repowering)", (185,28,28), f"{_pm_repow} Wc",
+         f"{int(p['n']):,}",            f"{_tot_repow} kWc"),
+        ("Panneaux neufs (Revamping)",  (30,58,95),  f"{_pm_rev} Wc",
+         f"{int(p['n']):,}",            f"{_tot_rev} kWc"),
+        ("Panneaux neufs (Mix)",        (146,64,14), f"{_pm_mix} Wc",
+         f"{round(p['n_rev']):,}",      f"{_tot_mix} kWc"),
     ]
     cw0, cw1, cw2, cw3 = 62, 30, 28, 36
     mp._f("B",7); mp.set_text_color(255,255,255); mp.set_fill_color(15,23,42)
