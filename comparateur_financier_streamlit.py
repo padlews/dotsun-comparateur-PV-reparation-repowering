@@ -534,7 +534,6 @@ def generate_pdf(p, fin, results, rc):
     lw, vw = 52, 22
 
     syn_labels = [
-        "Panneaux a facon (Rev.)","Panneaux a facon (Mix)",
         "CAPEX","Fonds propres","Dette","Durée totale",
         "CA cumulé","EBITDA cumulé","Résultat net cumulé",
         "Trésorerie finale","Δ Trésorerie vs Défaut","ROE incrémental","DSCR moyen"
