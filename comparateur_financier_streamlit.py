@@ -1149,7 +1149,7 @@ k3.metric("Pcentrale (Actuelle)", f"{p['Pcentrale']*p['I2']:,.0f} kWc")
 _pm_repow = round(float(p['Pm']) * (1 + p['u_']))
 st.markdown(
     f'<div style="font-size:13px;font-weight:700;color:#64748b;margin-top:-6px;margin-bottom:6px">'
-    f'Panneaux <b>Repowering</b> : {_pm_repow} Wc'
+    f'Panneaux neufs <b>Repowering</b> : {_pm_repow} Wc'
     f'&nbsp;&nbsp;|&nbsp;&nbsp;'
     f'Panneaux neufs <b>Revamping</b> : {round(p["Pm_fac_rev"])} Wc'
     f'&nbsp;&nbsp;|&nbsp;&nbsp;'
