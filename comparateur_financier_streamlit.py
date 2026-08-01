@@ -54,6 +54,9 @@ def get_params():
     # Power at start of each scenario (year 0, before degradation)
     Pc_rev  = Pcentrale * (1 + u_rev)
     Pc_mix  = P_res_rep + gap_kWc * (1 + u_mix)
+    # Wc per façon module
+    Pm_fac_rev = Pm * (1 + u_rev)
+    Pm_fac_mix = Pm_fac * (1 + u_mix)
     capex = {
         'defaut': 0.0,
         'rep':    n * (float(p['Crep']) + float(p['Cdm'])),
@@ -64,7 +67,9 @@ def get_params():
     p.update(Pcentrale=Pcentrale, I2=I2, alpha_rev=alpha_rev, gap_kWc=gap_kWc,
              n_rev=n_rev, Pm_fac=Pm_fac, capex=capex,
              d_=d, dn_=float(p['dn'])/100, u_=u, u_rev_=u_rev, u_mix_=u_mix,
-             Pc_rev=Pc_rev, Pc_mix=Pc_mix, alpha_rep=alpha_rep)
+             Pc_rev=Pc_rev, Pc_mix=Pc_mix,
+             Pm_fac_rev=Pm_fac_rev, Pm_fac_mix=Pm_fac_mix,
+             alpha_rep=alpha_rep)
     return p
 
 def get_fin():
@@ -334,7 +339,7 @@ def render_scenario_table(s, sc, N):
     h += '</tbody></table></div>'
     return h
 
-def render_synthesis(results, p=None):
+def render_synthesis(results):
     def srow(label, fn, bold=False, section=False, col_fn=None):
         h = f'<tr>{_tdl(label, bold=bold, section=section)}'
         for s in STRATS:
@@ -343,24 +348,12 @@ def render_synthesis(results, p=None):
             h += _td(v, color=c, bold=bold)
         return h + '</tr>'
 
-    def prow(label, vals):
-        """Row with per-strategy values from a dict {strat: str}."""
-        h = f'<tr>{_tdl(label)}'
-        for s in STRATS:
-            h += _td(vals.get(s, '—'))
-        return h + '</tr>'
-
     h = '<div style="overflow-x:auto;margin-bottom:20px"><table style="border-collapse:collapse;background:#fff;width:100%"><thead><tr>'
     h += ('<th style="background:#0f172a;color:#fff;padding:5px 8px;text-align:left;font-size:12px;'
           'font-weight:700;width:210px;min-width:210px;max-width:210px;white-space:nowrap">Indicateur</th>')
     for s in STRATS:
         h += f'<th style="background:{COLORS[s]};color:#fff;padding:6px 10px;text-align:center;font-size:11px;min-width:110px">{LABELS[s]}</th>'
     h += '</tr></thead><tbody>'
-
-    if p:
-        h += srow("── Puissance", lambda s,r: '', section=True)
-        h += prow("Panneaux à façon (Revamping)", {'rev': f"{round(p['Pc_rev'])} kWc"})
-        h += prow("Panneaux à façon (Mix)",       {'mix': f"{round(p['Pc_mix'])} kWc"})
 
     h += srow("CAPEX", lambda s,r: fe(r['CAPEX']))
     h += srow("Fonds propres (€)", lambda s,r: fe(r['equity']))
@@ -428,27 +421,12 @@ def render_comparateur_table(p, rc):
     ext = rc['ext']
     best_s = max(STRATS, key=lambda s: rc['cfTotal'][s])
 
-    # STRATS = ['defaut','repow','rep','rev','mix']
     pow_cells = [
         vs(f"{round(Pc*I2)} kWc"),
         vs(f"{round(Pc*(1+u))} kWc"),
         vs(f"{round(Pc*I2)} kWc"),
         vs(f"{round(p['Pc_rev'])} kWc"),
         vs(f"{round(p['Pc_mix'])} kWc"),
-    ]
-    fac_rev_cells = [
-        vs("—", '#94a3b8'),
-        vs("—", '#94a3b8'),
-        vs("—", '#94a3b8'),
-        vs(f"{round(p['Pc_rev'])} kWc", '#1e3a5f'),
-        vs("—", '#94a3b8'),
-    ]
-    fac_mix_cells = [
-        vs("—", '#94a3b8'),
-        vs("—", '#94a3b8'),
-        vs("—", '#94a3b8'),
-        vs("—", '#94a3b8'),
-        vs(f"{round(p['Pc_mix'])} kWc", '#92400e'),
     ]
     ext_cells   = [vs('—' if ext[s]==0 else f"+{int(ext[s])} ans PPA") for s in STRATS]
     capex_cells = [vs(fe(p['capex'][s])) for s in STRATS]
@@ -484,8 +462,6 @@ def render_comparateur_table(p, rc):
     h += ''.join(th_comp(s) for s in STRATS)
     h += '</tr></thead><tbody>'
     h += trow("Puissance après intervention", pow_cells)
-    h += trow("Panneaux à façon (Revamping)", fac_rev_cells)
-    h += trow("Panneaux à façon (Mix)", fac_mix_cells)
     h += trow("Extension post-OA", ext_cells)
     h += trow("CAPEX (€)", capex_cells)
     h += trow("Revenus cumulés EDF OA (€)", revOA_cells)
@@ -1126,7 +1102,14 @@ tab_syn, tab_def, tab_rpw, tab_rep, tab_rev, tab_mix, tab_ren = st.tabs(
 
 with tab_syn:
     st.markdown("#### Tableau de Synthèse — Tous Scénarios")
-    st.markdown(render_synthesis(results, p), unsafe_allow_html=True)
+    _c1, _c2, _c3, _c4 = st.columns(4)
+    _c1.metric("Pcentrale", f"{p['Pcentrale']:,.0f} kWc")
+    _c2.metric("Efficacité I₂", f"{p['I2']*100:.1f}%", f"après {int(p['Y'])} ans")
+    _c3.metric("Panneau façon (Revamping)", f"{p['Pm_fac_rev']:.0f} Wc",
+               f"u' = {p['u_rev_']*100:.0f}%" if p['u_rev_'] > 0 else None)
+    _c4.metric("Panneau façon (Mix)", f"{p['Pm_fac_mix']:.0f} Wc",
+               f"u'' = {p['u_mix_']*100:.0f}%" if p['u_mix_'] > 0 else None)
+    st.markdown(render_synthesis(results), unsafe_allow_html=True)
 
 for tab, s in zip([tab_def, tab_rpw, tab_rep, tab_rev, tab_mix], STRATS):
     with tab:
