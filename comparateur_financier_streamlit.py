@@ -513,6 +513,7 @@ def generate_pdf(p, fin, results, rc):
         ("PPA post-OA (€/kWh)", f"{p['PPA']:.3f}"),
         ("N1 — Extension Rép/Rev", f"{int(p['N1'])} ans"),
         ("N2 — Extension Repow.", f"{int(p['N2'])} ans"),
+        ("alpha — Mix Rep./Rev.", f"{int(p['alpha_pct'])}% / {100-int(p['alpha_pct'])}%"),
         ("u — Uplift Repowering", f"{p['u']:.1f}%"),
         ("u' — Uplift Revamping", f"{p.get('u_rev', 0.0):.1f}%"),
         ("u'' — Uplift Mix", f"{p.get('u_mix', 0.0):.1f}%"),
@@ -923,7 +924,7 @@ def generate_pdf(p, fin, results, rc):
     _pm_mix   = round(p['Pm_fac_mix'])
     _tot_repow = round(p['Pcentrale'] * (1 + p['u_']))
     _tot_rev   = round(p['Pc_rev'])
-    _tot_mix   = round(p['gap_kWc'] * (1 + p['u_mix_']))   # puissance façon seule
+    _tot_mix   = round(p['n_rev'] * float(p['Pm']) * (1 + p['u_mix_']) / 1000)
     _rows_mod = [
         ("Panneaux neufs (Repowering)",  (185,28,28), f"{_pm_repow} Wc",
          f"{int(p['n']):,}",             f"{_tot_repow} kWc"),
