@@ -1177,16 +1177,32 @@ with tab_ren:
 # ── PDF download ──────────────────────────────────────────────────────────────
 from datetime import date as _dt
 st.markdown("---")
-try:
-    pdf_bytes = generate_pdf(p, fin, results, rc)
-    st.download_button(
-        label="📄 Télécharger le rapport PDF complet",
-        data=pdf_bytes,
-        file_name=f"DOTSun_Tableaux_Financiers_{_dt.today().strftime('%Y%m%d')}.pdf",
-        mime="application/pdf",
-    )
-except Exception as e:
-    st.warning(f"PDF indisponible : {e}")
+_dl1, _dl2 = st.columns(2)
+with _dl1:
+    try:
+        pdf_bytes = generate_pdf(p, fin, results, rc)
+        st.download_button(
+            label="📄 Télécharger le rapport PDF complet",
+            data=pdf_bytes,
+            file_name=f"DOTSun_Tableaux_Financiers_{_dt.today().strftime('%Y%m%d')}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+    except Exception as e:
+        st.warning(f"PDF indisponible : {e}")
+with _dl2:
+    _notice_path = os.path.join(os.path.dirname(__file__), "DOTSun_Notice_Utilisation.pdf")
+    if os.path.exists(_notice_path):
+        with open(_notice_path, "rb") as _nf:
+            st.download_button(
+                label="📘 Télécharger la notice d'utilisation",
+                data=_nf.read(),
+                file_name="DOTSun_Notice_Utilisation.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+    else:
+        st.info("Notice non disponible (générez-la avec generate_notice_pdf.py).")
 
 with st.expander("📋 Hypothèses & Définitions"):
     st.markdown("""
