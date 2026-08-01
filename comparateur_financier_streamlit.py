@@ -50,25 +50,35 @@ def get_params():
     P_res_rep = alpha_rep * n * Pm * I2 / 1000
     gap_kWc = max(0.0, Pcentrale - P_res_rep)   # déficit puissance (affichage)
     n_rev = alpha_rev * n
-    # façon modules = n_rev panneaux × Pm Wc chacun (même gabarit que l'original)
-    Pm_fac     = Pm                              # base sans uplift
+    Pm_fac     = Pm
     Pm_fac_rev = Pm * (1 + u_rev)
-    Pm_fac_mix = Pm * (1 + u_mix)
-    # Puissance de départ de chaque scénario (an 0, avant dégradation)
+
+    # Mix : dimensionner les modules façon pour atteindre la cible Pc×(1+u_mix)
+    # Pm_fac_mix = Pm × [(1+u_mix) − α×I2] / (1−α)
+    # Plafond physique : 1.5×Pm
+    if n_rev > 0:
+        Pm_fac_mix_ideal = Pm * ((1 + u_mix) - alpha_rep * I2) / alpha_rev
+        mix_uplift_capped = Pm_fac_mix_ideal > Pm * 1.5
+        Pm_fac_mix = min(Pm_fac_mix_ideal, Pm * 1.5)
+    else:
+        Pm_fac_mix = 0.0
+        mix_uplift_capped = False
+
     Pc_rev = Pcentrale * (1 + u_rev)
-    Pc_mix = P_res_rep + n_rev * Pm * (1 + u_mix) / 1000   # converge : α=100%→Rép, α=0%→Rev
+    Pc_mix = P_res_rep + n_rev * Pm_fac_mix / 1000
     capex = {
         'defaut': 0.0,
         'rep':    n * (float(p['Crep']) + float(p['Cdm'])),
-        'rev':    n * (Pm * (1 + u_rev) * float(p['Cfac']) + float(p['Cdm'])),
+        'rev':    n * (Pm_fac_rev * float(p['Cfac']) + float(p['Cdm'])),
         'repow':  n * float(p['Cde']) + Pcentrale * 1000 * (1+u) * float(p['Crev']),
-        'mix':    alpha_rep * n * (float(p['Crep']) + float(p['Cdm'])) + n_rev * Pm * (1 + u_mix) * float(p['Cfac']) + n_rev * float(p['Cdm']),
+        'mix':    alpha_rep * n * (float(p['Crep']) + float(p['Cdm'])) + n_rev * Pm_fac_mix * float(p['Cfac']) + n_rev * float(p['Cdm']),
     }
     p.update(Pcentrale=Pcentrale, I2=I2, alpha_rev=alpha_rev, gap_kWc=gap_kWc,
              n_rev=n_rev, Pm_fac=Pm_fac, capex=capex,
              d_=d, dn_=float(p['dn'])/100, u_=u, u_rev_=u_rev, u_mix_=u_mix,
              Pc_rev=Pc_rev, Pc_mix=Pc_mix,
              Pm_fac_rev=Pm_fac_rev, Pm_fac_mix=Pm_fac_mix,
+             mix_uplift_capped=mix_uplift_capped,
              alpha_rep=alpha_rep)
     return p
 
@@ -924,7 +934,7 @@ def generate_pdf(p, fin, results, rc):
     _pm_mix   = round(p['Pm_fac_mix'])
     _tot_repow = round(p['Pcentrale'] * (1 + p['u_']))
     _tot_rev   = round(p['Pc_rev'])
-    _tot_mix   = round(p['n_rev'] * float(p['Pm']) * (1 + p['u_mix_']) / 1000)
+    _tot_mix   = round(p['n_rev'] * p['Pm_fac_mix'] / 1000)
     _rows_mod = [
         ("Panneaux neufs (Repowering)",  (185,28,28), f"{_pm_repow} Wc",
          f"{int(p['n']):,}",             f"{_tot_repow} kWc"),
@@ -1138,7 +1148,7 @@ k2.metric("Efficacité I₂", f"{p['I2']*100:.1f}%", f"après {int(p['Y'])} ans"
 k3.metric("Pcentrale (Actuelle)", f"{p['Pcentrale']*p['I2']:,.0f} kWc")
 _pm_repow = round(float(p['Pm']) * (1 + p['u_']))
 st.markdown(
-    f'<div style="font-size:13px;font-weight:700;color:#64748b;margin-top:-6px;margin-bottom:10px">'
+    f'<div style="font-size:13px;font-weight:700;color:#64748b;margin-top:-6px;margin-bottom:6px">'
     f'Panneaux neufs <b>Repowering</b> : {_pm_repow} Wc'
     f'&nbsp;&nbsp;|&nbsp;&nbsp;'
     f'Panneaux à façon <b>Revamping</b> : {round(p["Pm_fac_rev"])} Wc'
@@ -1147,6 +1157,15 @@ st.markdown(
     f'</div>',
     unsafe_allow_html=True
 )
+if p.get('mix_uplift_capped'):
+    _alpha_pct = int(p['alpha_pct'])
+    _pm_max = round(float(p['Pm']) * 1.5)
+    st.warning(
+        f"⚠️ **Uplift Mix plafonné** — avec α={_alpha_pct}% et u''={p['u_mix_']*100:.0f}%, "
+        f"le module façon requis dépasse 1,5×Pm. "
+        f"Les panneaux à façon (Mix) sont limités à {_pm_max} Wc. "
+        f"Réduisez α ou u'' pour atteindre l'uplift cible."
+    )
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 tab_syn, tab_def, tab_rpw, tab_rep, tab_rev, tab_mix, tab_ren = st.tabs(
