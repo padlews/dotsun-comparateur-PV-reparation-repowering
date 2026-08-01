@@ -163,7 +163,7 @@ body(
     "L'outil modélise cinq stratégies et produit, pour chacune, un compte de résultat annuel "
     "complet (CA, EBITDA, EBIT, résultat net), un plan de trésorerie et des indicateurs "
     "synthétiques (ROE incrémental, DSCR) permettant une comparaison directe. "
-    "Un rapport PDF exportable regroupe l'ensemble des résultats."
+    "Un rapport PDF exportable regroupe l'ensemble des résultats avec le nom du projet saisi."
 )
 pdf.ln(2)
 
@@ -173,8 +173,9 @@ section("2.  Architecture de la Modélisation")
 body(
     "Le moteur de calcul est organisé en trois couches :"
 )
-bullet("Paramètres d'entrée — saisis dans la barre latérale de l'interface : caractéristiques "
-       "de la centrale, hypothèses de dégradation, contrat OA, coûts d'intervention et "
+bullet("Paramètres d'entrée — saisis dans la barre latérale de l'interface : nom du projet, "
+       "caractéristiques de la centrale, hypothèses de dégradation, contrat OA, "
+       "coûts d'intervention, uplift de puissance (u, u', u'') et "
        "hypothèses financières (taux, fiscalité, financement).")
 bullet("Calcul des revenus — pour chaque scénario et chaque année, la puissance active est "
        "calculée à partir de la puissance nominale et du taux de dégradation applicable. "
@@ -197,8 +198,10 @@ param_header(tl_cols, tl_w)
 tl_rows = [
     ("Avant projet",       "Y ans",  "OA (historique)", "Pc × (1-d)^k, de 100% à I2"),
     ("OA restantes",       "N ans",  "Tarif OA",        "Continue depuis I2 selon scénario"),
-    ("Post-OA — Rép/Rev",  "N1 ans", "PPA / agrég.",    "Depuis I2 (Rép.) ou Pc (Rev./Mix)"),
-    ("Post-OA — Repow.",   "N2 ans", "PPA / agrég.",    "Depuis Pc × (1+u)"),
+    ("Post-OA — Rép.",     "N1 ans", "PPA / agrég.",    "Depuis I2 × (1-d)^k"),
+    ("Post-OA — Rev.",     "N1 ans", "PPA / agrég.",    "Depuis Pc×(1+u') × (1-d)^k"),
+    ("Post-OA — Mix",      "N1 ans", "PPA / agrég.",    "Depuis Pc_mix × (1-d)^k"),
+    ("Post-OA — Repow.",   "N2 ans", "PPA / agrég.",    "Depuis Pc×(1+u) × (1-d)^k"),
 ]
 for i, row in enumerate(tl_rows):
     param_row(row, tl_w, i, bold_first=False)
@@ -221,53 +224,54 @@ strats = [
         (55, 65, 81),
         "CAPEX = 0 €",
         "Aucune intervention réalisée. La centrale continue à fonctionner mais sa dégradation "
-        "s'accélère (taux dn, typiquement 5–10 %/an). La puissance de départ est Pc × I2 "
+        "s'accélère (taux dn, typiquement 5-10 %/an). La puissance de départ est Pc × I2 "
         "(efficacité actuelle). C'est le scénario de référence auquel tous les autres sont comparés. "
         "Durée post-OA : N1 ans.",
     ),
     (
         "Réparation  (remplacement des panneaux défaillants)",
         (22, 101, 52),
-        "CAPEX = alpha × n × (Crep + Cdm)",
-        "Seuls les panneaux défaillants sont remplacés (fraction alpha). La puissance repart "
+        "CAPEX = n × (Crep + Cdm)",
+        "Tous les panneaux sont examinés et réparés si défaillants. La puissance repart "
         "de Pc × I2 (même niveau qu'avant intervention) mais retrouve une dégradation normale d. "
         "L'investissement est limité. Durée post-OA : N1 ans.",
     ),
     (
-        "Revamping  (remplacement total des panneaux)",
+        "Revamping  (remplacement total des panneaux à façon)",
         (30, 58, 95),
-        "CAPEX = n × (Pm × Cfac + Cdm)",
-        "Tous les panneaux sont remplacés par des modules de puissance identique (fabrication "
-        "façon). La centrale retrouve sa puissance nominale Pc (I2 = 100 %). "
-        "Dégradation normale d appliquée ensuite. Durée post-OA : N1 ans.",
+        "CAPEX = n × (Pm × (1+u') × Cfac + Cdm)",
+        "Tous les panneaux sont remplacés par des modules à façon. Un paramètre d'uplift u' "
+        "permet de choisir des modules de puissance supérieure à l'original : la puissance "
+        "installée passe à Pc × (1+u'). Sans uplift (u'=0), la centrale revient exactement "
+        "à Pc. Dégradation normale d appliquée ensuite. Durée post-OA : N1 ans.",
     ),
     (
-        "Repowering  (remplacement et augmentation de puissance)",
+        "Repowering  (remplacement complet avec augmentation de puissance)",
         (185, 28, 28),
         "CAPEX = n × Cde + Pc × (1+u) × 1000 × Crev",
         "Remplacement complet des panneaux par des modules de puissance supérieure. "
         "La puissance installée passe à Pc × (1+u), avec u = gain de puissance en %. "
-        "Cela nécessite le dépose des anciens modules (Cde) et la pose des nouveaux (Crev). "
+        "Cela nécessite le démontage complet de la centrale (Cde) et la pose des nouveaux "
+        "modules (Crev, en €/Wc du projet EPC). "
         "Dégradation normale d. Durée post-OA : N2 ans (généralement plus longue).",
     ),
     (
         "Mix Réparation + Revamping",
         (120, 60, 20),
-        "CAPEX = alpha × n × (Crep + Cdm) + gap_kWc × 1000 × Cfac",
-        "Combinaison optimisée : une fraction alpha des panneaux est réparée (les défaillants), "
-        "et la fraction complémentaire (1-alpha) est revampée avec des modules façon pour "
-        "combler l'écart de puissance. La puissance repart à Pc (nominale). "
+        "CAPEX = alpha×n×(Crep+Cdm) + gap_kWc×1000×(1+u'')×Cfac + n_rev×Cdm",
+        "Combinaison optimisée : une fraction alpha des panneaux est réparée (les réparables), "
+        "et la fraction complémentaire n_rev = (1-alpha)×n est revampée avec des modules à façon. "
+        "Un uplift u'' permet d'installer des modules de puissance supérieure sur la partie façon. "
+        "La puissance de départ est Pc_mix = P_res_rep + gap_kWc × (1+u''). "
+        "Sans uplift (u''=0) et avec alpha=0%, le Mix converge exactement vers le Revamping. "
         "Dégradation normale d. Durée post-OA : N1 ans.",
     ),
 ]
 
-colors_strat = [(55,65,81),(22,101,52),(30,58,95),(185,28,28),(120,60,20)]
 for i, (title, col, capex, desc) in enumerate(strats):
-    # Colored title bar
     pdf.set_fill_color(*col); pdf.set_text_color(255, 255, 255)
     pdf._f("B", 9)
     pdf.cell(W, 6, f"  {title}", fill=True, border=0, ln=True)
-    # Content
     bg = (248, 250, 252) if i % 2 == 0 else (255, 255, 255)
     pdf.set_fill_color(*bg)
     pdf._f("B", 8); pdf.set_text_color(71, 85, 105)
@@ -293,6 +297,9 @@ sw = [18, 16, W - 18 - 16 - 22, 22]
 param_header(["Symbole", "Unité", "Description", "Val. type"], sw)
 
 groups = [
+    ("Général", [
+        ("Projet",     "—",           "Nom du projet — apparaît dans le rapport PDF",    "libre"),
+    ]),
     ("Centrale solaire", [
         ("n",          "panneaux",    "Nombre total de panneaux installés",             "4 000"),
         ("Pm",         "Wc",          "Puissance-crête nominale par panneau",           "300"),
@@ -320,11 +327,18 @@ groups = [
         ("Cfac",       "€/Wc",        "Module à façon livré sur site (Rev. / Mix)",     "0,25"),
         ("Crev",       "€/Wc",        "Coût EPC projet Repowering",                    "0,50"),
     ]),
-    ("Répartition Mix & Repowering", [
-        ("alpha",      "%",           "Part des panneaux réparés dans le Mix",          "85"),
-        ("u",          "%",           "Gain de puissance en Repowering (Pc -> Pc×(1+u))", "10"),
+    ("Opérationnel & Uplift", [
+        ("u",          "%",           "Uplift Repowering : Pc passe à Pc×(1+u)",        "10"),
+        ("u'",         "%",           "Uplift Revamping : modules façon plus puissants que Pm", "0"),
+        ("u''",        "%",           "Uplift Mix : uplift sur la partie façon du Mix", "0"),
         ("Down_rep",   "mois",        "Immobilisation estimée Réparation / Revamping",  "1"),
         ("Down_repow", "mois",        "Immobilisation estimée Repowering",              "8"),
+    ]),
+    ("Mix Réparation + Revamping", [
+        ("alpha",      "%",           "Part des panneaux réparés dans le Mix",          "85"),
+        ("n_rev",      "panneaux",    "Nb modules façon = (1-alpha) × n (calculé auto)", "calc."),
+        ("gap_kWc",    "kWc",         "Ecart de puissance à combler par les façon (calculé)", "calc."),
+        ("Pm_fac",     "Wc",          "Puissance par module façon sans uplift (calculé)", "calc."),
     ]),
     ("Hypothèses financières", [
         ("equity_pct", "% CAPEX",     "Part des fonds propres dans le financement",     "20"),
@@ -357,21 +371,23 @@ body(
 pdf.ln(1)
 
 tabs = [
-    ("Stratégie Rénovation",
-     "Tableau comparatif des Cash Flows nets de CAPEX pour les 5 scénarios sur toute la durée "
-     "modélisée. Affiche, pour chaque année et chaque scénario : le cash flow net de CAPEX, "
-     "le delta cumulé vs Défaut et l'écart en pourcentage. "
-     "La meilleure stratégie est identifiée automatiquement."),
-    ("Synthèse Financière",
-     "Vue d'ensemble sur une seule ligne par scénario : CAPEX, fonds propres, dette, "
-     "CA cumulé, EBITDA cumulé, résultat net cumulé, trésorerie finale, "
-     "delta trésorerie vs Défaut, ROE incrémental et DSCR moyen."),
+    ("Synthèse (tous scénarios)",
+     "Tableau financier comparatif des 5 scénarios sur toute la durée modélisée : CAPEX, "
+     "fonds propres, dette, CA cumulé, EBITDA cumulé, résultat net cumulé, trésorerie finale, "
+     "delta trésorerie vs Défaut, ROE incrémental et DSCR moyen. "
+     "Une barre d'information au-dessus rappelle Pcentrale, Efficacité I2, Gap kWc, "
+     "ainsi que la puissance en Wc des panneaux neufs (Repowering), à façon (Revamping) "
+     "et à façon (Mix)."),
     ("Défaut / Repowering / Réparation / Revamping / Mix",
      "Pour chaque scénario, un tableau financier annuel détaillé comprenant : "
      "la puissance active (kWc), le productible (MWh), le chiffre d'affaires, l'EBITDA, "
      "l'amortissement, l'EBIT, les intérêts d'emprunt, l'EBT, l'impôt, le résultat net, "
      "le remboursement de la dette, le cash flow net, la trésorerie cumulée et "
      "le DSCR annuel."),
+    ("Stratégie Rénovation",
+     "Tableau comparatif des Cash Flows nets de CAPEX pour les 5 scénarios sur toute la durée "
+     "modélisée. Affiche la puissance après intervention, le CAPEX, les revenus OA et post-OA "
+     "et le Cash Flow Total. La meilleure stratégie est identifiée automatiquement avec badge."),
 ]
 
 for t_name, t_desc in tabs:
@@ -395,7 +411,7 @@ indicators = [
     ("Dette",
      "(1 - equity_pct/100) × CAPEX — financement bancaire, remboursé sur loan_dur ans."),
     ("CA",
-     "Puissance(s,k) × H × tarif(k)  avec tarif = OA si k ≤ N, sinon PPA."),
+     "Puissance(s,k) × H × tarif(k)  avec tarif = OA si k <= N, sinon PPA."),
     ("EBITDA",
      "CA — charges d'exploitation (maint. + OPEX + assurance + loyer), indexées inflation."),
     ("Amortissement",
@@ -413,15 +429,15 @@ indicators = [
      "+ Intérêts trésorerie (treas_rate × tréso cumulée)."),
     ("Trésorerie cumulée",
      "Somme des cash flows nets depuis l'année 1 (départ = 0 ou — fonds propres)."),
-    ("Δ Trésorerie vs Défaut",
-     "Tréso. cumulée(scénario) — Tréso. cumulée(Défaut) — CAPEX  "
+    ("Delta Tréso. vs Défaut",
+     "Tréso. cumulée(scénario) — Tréso. cumulée(Défaut) — CAPEX "
      "— mesure le gain net réel de l'investissement."),
     ("ROE incrémental",
-     "Δ Trésorerie cumulée finale / Fonds propres investis  "
+     "Delta Trésorerie cumulée finale / Fonds propres investis "
      "— rentabilité des capitaux propres engagés."),
     ("DSCR",
-     "Debt Service Coverage Ratio = EBITDA / (Rembt. capital + Intérêts)  "
-     "— ratio de couverture de la dette. Un DSCR ≥ 1,2 est considéré sain."),
+     "Debt Service Coverage Ratio = EBITDA / (Rembt. capital + Intérêts) "
+     "— ratio de couverture de la dette. Un DSCR >= 1,2 est considéré sain."),
 ]
 
 for i, (ind, defn) in enumerate(indicators):
@@ -433,12 +449,16 @@ section("7.  Export PDF du Rapport")
 body(
     "Le bouton \"Télécharger le rapport PDF\" génère un document complet qui comprend :"
 )
-bullet("Page 1 — Paramètres du scénario (tableau centrales + hypothèses financières) "
-       "et schéma vectoriel d'évolution de la puissance pour les 5 scénarios.")
-bullet("Page 2 — Stratégie de Rénovation (comparatif Cash Flow net de CAPEX) + "
-       "recommandation de la meilleure stratégie + Synthèse Financière + "
-       "Hypothèses & Définitions.")
+bullet("Page 1 — Paramètres du scénario (tableau centrale + hypothèses financières), "
+       "schéma vectoriel d'évolution de la puissance pour les 5 scénarios, "
+       "et tableau récapitulatif des modules neufs (Wc/module, nombre, puissance totale) "
+       "pour Repowering, Revamping et Mix.")
+bullet("Page 2 — Stratégie de Rénovation (comparatif Cash Flow net de CAPEX) avec "
+       "recommandation automatique + Synthèse Financière (tous indicateurs) + "
+       "Hypothèses & Définitions des stratégies.")
 bullet("Pages 3 à 7 — Tableaux financiers annuels détaillés par scénario (format paysage).")
+bullet("En-tête et pied de page de chaque page : logo DOTSun, nom du projet saisi, date et "
+       "numéro de page.")
 pdf.ln(4)
 
 section("8.  Notes & Limites du Modèle")
@@ -455,7 +475,11 @@ notes = [
     "ni de distribution de pannes). Le productible H est supposé constant chaque année.",
     "L'efficacité mesurée Eff-IV (mesure IV sur site) remplace le calcul théorique uniquement "
     "pour les scénarios Défaut et Réparation. Revamping, Mix et Repowering démarrent "
-    "systématiquement depuis la puissance nominale (reset Pc ou Pc × (1+u)).",
+    "systématiquement depuis leur puissance nominale recalculée (Pc×(1+u'), Pc_mix, Pc×(1+u)).",
+    "Les paramètres d'uplift u, u' et u'' affectent simultanément la puissance de départ "
+    "et le CAPEX (modules de plus haute puissance = coût Cfac ou Crev proportionnel en €/Wc).",
+    "Cohérence Mix/Revamping : avec alpha=0% et u''=0%, le scénario Mix converge exactement "
+    "vers le Revamping (même CAPEX, même puissance, même Cash Flow).",
     "La fiscalité est simplifiée : un taux d'IS unique est appliqué sur l'EBT positif. "
     "Les reports déficitaires ne sont pas modélisés.",
 ]

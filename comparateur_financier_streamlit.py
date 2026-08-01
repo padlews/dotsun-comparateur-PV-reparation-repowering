@@ -1133,9 +1133,9 @@ rc      = compute_comparateur(p)
 
 # KPI bar
 k1, k2, k3 = st.columns(3)
-k1.metric("Pcentrale", f"{p['Pcentrale']:,.0f} kWc")
+k1.metric("Pcentrale (Initiale)", f"{p['Pcentrale']:,.0f} kWc")
 k2.metric("Efficacité I₂", f"{p['I2']*100:.1f}%", f"après {int(p['Y'])} ans")
-k3.metric("Gap kWc", f"{p['gap_kWc']:.0f} kWc")
+k3.metric("Pcentrale (Actuelle)", f"{p['Pcentrale']*p['I2']:,.0f} kWc")
 _pm_repow = round(float(p['Pm']) * (1 + p['u_']))
 st.markdown(
     f'<div style="font-size:13px;font-weight:700;color:#64748b;margin-top:-6px;margin-bottom:10px">'
