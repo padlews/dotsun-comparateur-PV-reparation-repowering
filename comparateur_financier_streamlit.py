@@ -58,8 +58,8 @@ def get_params():
     # Plafond physique : 1.5×Pm
     if n_rev > 0:
         Pm_fac_mix_ideal = Pm * ((1 + u_mix) - alpha_rep * I2) / alpha_rev
-        mix_uplift_capped = Pm_fac_mix_ideal > Pm * 1.5
-        Pm_fac_mix = min(Pm_fac_mix_ideal, Pm * 1.5)
+        mix_uplift_capped = Pm_fac_mix_ideal > Pm * 1.7
+        Pm_fac_mix = min(Pm_fac_mix_ideal, Pm * 1.7)
     else:
         Pm_fac_mix = 0.0
         mix_uplift_capped = False
