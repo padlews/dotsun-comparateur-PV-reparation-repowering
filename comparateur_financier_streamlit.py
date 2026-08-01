@@ -189,9 +189,9 @@ def compute_comparateur(p):
     def power(s, k):
         if s == 'defaut': return Pc * I2 * (1-dn)**(k-1)
         if s == 'rep':    return Pc * I2 * (1-d)**(k-1)
-        if s == 'rev':    return Pc * (1-d)**(k-1)
+        if s == 'rev':    return p['Pc_rev'] * (1-d)**(k-1)
         if s == 'repow':  return Pc * (1+u) * (1-d)**(k-1)
-        if s == 'mix':    return Pc * (1-d)**(k-1)
+        if s == 'mix':    return p['Pc_mix'] * (1-d)**(k-1)
 
     def dfactor(s, k):
         if s == 'defaut': return 1.0
