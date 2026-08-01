@@ -1088,12 +1088,21 @@ results = run_all(p, fin)
 rc      = compute_comparateur(p)
 
 # KPI bar
-k1,k2,k3,k4 = st.columns(4)
+k1, k2, k3 = st.columns(3)
 k1.metric("Pcentrale", f"{p['Pcentrale']:,.0f} kWc")
 k2.metric("Efficacité I₂", f"{p['I2']*100:.1f}%", f"après {int(p['Y'])} ans")
-k3.metric("Panneau à façon", f"{p['Pm_fac']:.0f} Wc")
-k4.metric("Gap kWc", f"{p['gap_kWc']:.0f} kWc")
-st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
+k3.metric("Gap kWc", f"{p['gap_kWc']:.0f} kWc")
+_pm_repow = round(float(p['Pm']) * (1 + p['u_']))
+st.markdown(
+    f'<div style="font-size:11px;color:#64748b;margin-top:-6px;margin-bottom:10px">'
+    f'Panneaux neufs <b>Repowering</b> : {_pm_repow} Wc'
+    f'&nbsp;&nbsp;|&nbsp;&nbsp;'
+    f'Panneaux à façon <b>Revamping</b> : {round(p["Pm_fac_rev"])} Wc'
+    f'&nbsp;&nbsp;|&nbsp;&nbsp;'
+    f'Panneaux à façon <b>Mix</b> : {round(p["Pm_fac_mix"])} Wc'
+    f'</div>',
+    unsafe_allow_html=True
+)
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 tab_syn, tab_def, tab_rpw, tab_rep, tab_rev, tab_mix, tab_ren = st.tabs(
@@ -1102,13 +1111,6 @@ tab_syn, tab_def, tab_rpw, tab_rep, tab_rev, tab_mix, tab_ren = st.tabs(
 
 with tab_syn:
     st.markdown("#### Tableau de Synthèse — Tous Scénarios")
-    _c1, _c2, _c3, _c4 = st.columns(4)
-    _c1.metric("Pcentrale", f"{p['Pcentrale']:,.0f} kWc")
-    _c2.metric("Efficacité I₂", f"{p['I2']*100:.1f}%", f"après {int(p['Y'])} ans")
-    _c3.metric("Panneau façon (Revamping)", f"{p['Pm_fac_rev']:.0f} Wc",
-               f"u' = {p['u_rev_']*100:.0f}%" if p['u_rev_'] > 0 else None)
-    _c4.metric("Panneau façon (Mix)", f"{p['Pm_fac_mix']:.0f} Wc",
-               f"u'' = {p['u_mix_']*100:.0f}%" if p['u_mix_'] > 0 else None)
     st.markdown(render_synthesis(results), unsafe_allow_html=True)
 
 for tab, s in zip([tab_def, tab_rpw, tab_rep, tab_rev, tab_mix], STRATS):
