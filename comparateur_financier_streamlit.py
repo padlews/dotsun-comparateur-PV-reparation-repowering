@@ -639,8 +639,9 @@ def generate_pdf(p, fin, results, rc):
             mp.cell(col_vc,6,STRAT_LABELS_FR[s],fill=True,border=0,align='C')
         mp.ln()
         Pc_=p['Pcentrale']; I2_=p['I2']; u__=p['u_']
-        pow_v=[f"{round(Pc_*I2_)} kWc",f"{round(Pc_*(1+u__))} kWc",
-               f"{round(Pc_*I2_)} kWc",f"{round(Pc_)} kWc",f"{round(Pc_)} kWc"]
+        pow_v=[f"{round(Pc_*I2_)} kWc", f"{round(Pc_*(1+u__))} kWc",
+               f"{round(Pc_*I2_)} kWc", f"{round(p['Pc_rev'])} kWc",
+               f"{round(p['Pc_mix'])} kWc"]
         ext_=rc['ext']
         ext_v=['—' if ext_[s]==0 else f"+{int(ext_[s])} ans" for s in STRATS]
         crow=[
@@ -908,7 +909,40 @@ def generate_pdf(p, fin, results, rc):
     _section("Paramètres du scénario")
     _params_table(); mp.ln(3)
     _section("Schéma — Évolution de la puissance par scénario")
-    _draw_diagram(); mp.ln(2)
+    _draw_diagram(); mp.ln(3)
+
+    # ── Tableau récap modules neufs ──────────────────────────────────────────────
+    _pm_repow = round(float(p['Pm']) * (1 + p['u_']))
+    _pm_rev   = round(p['Pm_fac_rev'])
+    _pm_mix   = round(p['Pm_fac_mix'])
+    _tot_repow = round(p['Pcentrale'] * (1 + p['u_']))
+    _tot_rev   = round(p['Pc_rev'])
+    _tot_mix   = round(p['gap_kWc'] * (1 + p['u_mix_']))   # puissance façon seule
+    _rows_mod = [
+        ("Panneaux neufs (Repowering)",  (185,28,28), f"{_pm_repow} Wc",
+         f"{int(p['n']):,}",             f"{_tot_repow} kWc"),
+        ("Panneaux a facon (Revamping)", (30,58,95),  f"{_pm_rev} Wc",
+         f"{int(p['n']):,}",             f"{_tot_rev} kWc"),
+        ("Panneaux a facon (Mix)",       (146,64,14), f"{_pm_mix} Wc",
+         f"{round(p['n_rev']):,}",       f"{_tot_mix} kWc"),
+    ]
+    cw0, cw1, cw2, cw3 = 62, 30, 28, 36
+    mp._f("B",7); mp.set_text_color(255,255,255); mp.set_fill_color(15,23,42)
+    mp.cell(cw0,5.5,"Scénario",fill=True,border=0)
+    mp.cell(cw1,5.5,"Wc / module",fill=True,border=0,align='C')
+    mp.cell(cw2,5.5,"Nb modules",fill=True,border=0,align='C')
+    mp.cell(cw3,5.5,"Puissance totale",fill=True,border=0,align='C')
+    mp.ln()
+    for i,(lbl_m,rgb_m,wc_m,nb_m,tot_m) in enumerate(_rows_mod):
+        bg_m=(248,250,252) if i%2==0 else (255,255,255); mp.set_fill_color(*bg_m)
+        mp.set_text_color(*rgb_m); mp._f("B",7)
+        mp.cell(cw0,5.5,lbl_m,fill=True,border=0)
+        mp.set_text_color(15,23,42); mp._f("",7)
+        mp.cell(cw1,5.5,wc_m, fill=True,border=0,align='C')
+        mp.cell(cw2,5.5,nb_m, fill=True,border=0,align='C')
+        mp._f("B",7); mp.cell(cw3,5.5,tot_m,fill=True,border=0,align='C')
+        mp.ln()
+    mp.ln(4)
 
     # ── PAGE 2 : Stratégie Rénovation + Synthèse Financière + Hypothèses ────────
     mp.add_page('P')
