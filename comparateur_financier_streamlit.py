@@ -13,13 +13,13 @@ st.set_page_config(page_title="DOTSun — Tableaux Financiers PV",
 PRESETS = {
     "s1": dict(n=40000,Pm=300,H=1200,Y=10,d=0.40,dn=6.0,eff_iv=0.0,N=10,tarif=0.0818,PPA=0.03,
                N1=5,N2=10,Crep=25,Cdm=4,Cde=15,Cfac=0.25,Crev=0.5,
-               Down_rep=1.0,Down_repow=8.0,u=10.0,alpha_pct=85,
+               Down_rep=1.0,Down_repow=8.0,u=10.0,u_rev=0.0,u_mix=0.0,alpha_pct=85,
                equity_pct=20.0,loan_dur=10,int_rate=4.0,infl_rate=2.0,
                tax_rate=25.0,maint_pct=5.0,opex_pct=2.0,ins_pct=1.5,
                rent=10000.0,amort_dur=10,treas_rate=1.0),
     "s2": dict(n=4304,Pm=195,H=1180,Y=14,d=0.45,dn=8.0,eff_iv=0.0,N=6,tarif=0.75,PPA=0.03,
                N1=5,N2=15,Crep=30,Cdm=5,Cde=18,Cfac=0.30,Crev=0.70,
-               Down_rep=1.0,Down_repow=8.0,u=10.0,alpha_pct=80,
+               Down_rep=1.0,Down_repow=8.0,u=10.0,u_rev=0.0,u_mix=0.0,alpha_pct=80,
                equity_pct=20.0,loan_dur=10,int_rate=4.0,infl_rate=2.0,
                tax_rate=25.0,maint_pct=5.0,opex_pct=2.0,ins_pct=1.5,
                rent=10000.0,amort_dur=10,treas_rate=1.0),
@@ -40,6 +40,8 @@ def get_params():
     n, Pm = float(p['n']), float(p['Pm'])
     d = float(p['d']) / 100
     Y, u = float(p['Y']), float(p['u']) / 100
+    u_rev = float(p.get('u_rev', 0.0)) / 100
+    u_mix = float(p.get('u_mix', 0.0)) / 100
     alpha_rep = float(p['alpha_pct']) / 100
     Pcentrale = n * Pm / 1000
     eff_iv = float(p.get('eff_iv', 0.0))
@@ -49,16 +51,20 @@ def get_params():
     gap_kWc = max(0.0, Pcentrale - P_res_rep)
     n_rev = alpha_rev * n
     Pm_fac = gap_kWc * 1000 / n_rev if n_rev > 0 else 0.0
+    # Power at start of each scenario (year 0, before degradation)
+    Pc_rev  = Pcentrale * (1 + u_rev)
+    Pc_mix  = P_res_rep + gap_kWc * (1 + u_mix)
     capex = {
         'defaut': 0.0,
         'rep':    n * (float(p['Crep']) + float(p['Cdm'])),
-        'rev':    n * (Pm * float(p['Cfac']) + float(p['Cdm'])),
+        'rev':    n * (Pm * (1 + u_rev) * float(p['Cfac']) + float(p['Cdm'])),
         'repow':  n * float(p['Cde']) + Pcentrale * 1000 * (1+u) * float(p['Crev']),
-        'mix':    alpha_rep * n * (float(p['Crep']) + float(p['Cdm'])) + gap_kWc * 1000 * float(p['Cfac']) + n_rev * float(p['Cdm']),
+        'mix':    alpha_rep * n * (float(p['Crep']) + float(p['Cdm'])) + gap_kWc * 1000 * (1 + u_mix) * float(p['Cfac']) + n_rev * float(p['Cdm']),
     }
     p.update(Pcentrale=Pcentrale, I2=I2, alpha_rev=alpha_rev, gap_kWc=gap_kWc,
              n_rev=n_rev, Pm_fac=Pm_fac, capex=capex,
-             d_=d, dn_=float(p['dn'])/100, u_=u, alpha_rep=alpha_rep)
+             d_=d, dn_=float(p['dn'])/100, u_=u, u_rev_=u_rev, u_mix_=u_mix,
+             Pc_rev=Pc_rev, Pc_mix=Pc_mix, alpha_rep=alpha_rep)
     return p
 
 def get_fin():
@@ -71,9 +77,9 @@ def _power(s, k, p):
     Pc,I2,d,dn,u = p['Pcentrale'],p['I2'],p['d_'],p['dn_'],p['u_']
     if s=='defaut': return Pc*I2*(1-dn)**(k-1)
     if s=='rep':    return Pc*I2*(1-d)**(k-1)
-    if s=='rev':    return Pc*(1-d)**(k-1)
+    if s=='rev':    return p['Pc_rev']*(1-d)**(k-1)
     if s=='repow':  return Pc*(1+u)*(1-d)**(k-1)
-    if s=='mix':    return Pc*(1-d)**(k-1)
+    if s=='mix':    return p['Pc_mix']*(1-d)**(k-1)
 
 def _dfactor(s, k, p):
     N = int(p['N'])
@@ -328,7 +334,7 @@ def render_scenario_table(s, sc, N):
     h += '</tbody></table></div>'
     return h
 
-def render_synthesis(results):
+def render_synthesis(results, p=None):
     def srow(label, fn, bold=False, section=False, col_fn=None):
         h = f'<tr>{_tdl(label, bold=bold, section=section)}'
         for s in STRATS:
@@ -337,12 +343,24 @@ def render_synthesis(results):
             h += _td(v, color=c, bold=bold)
         return h + '</tr>'
 
+    def prow(label, vals):
+        """Row with per-strategy values from a dict {strat: str}."""
+        h = f'<tr>{_tdl(label)}'
+        for s in STRATS:
+            h += _td(vals.get(s, '—'))
+        return h + '</tr>'
+
     h = '<div style="overflow-x:auto;margin-bottom:20px"><table style="border-collapse:collapse;background:#fff;width:100%"><thead><tr>'
     h += ('<th style="background:#0f172a;color:#fff;padding:5px 8px;text-align:left;font-size:12px;'
           'font-weight:700;width:210px;min-width:210px;max-width:210px;white-space:nowrap">Indicateur</th>')
     for s in STRATS:
         h += f'<th style="background:{COLORS[s]};color:#fff;padding:6px 10px;text-align:center;font-size:11px;min-width:110px">{LABELS[s]}</th>'
     h += '</tr></thead><tbody>'
+
+    if p:
+        h += srow("── Puissance", lambda s,r: '', section=True)
+        h += prow("Panneaux à façon (Revamping)", {'rev': f"{round(p['Pc_rev'])} kWc"})
+        h += prow("Panneaux à façon (Mix)",       {'mix': f"{round(p['Pc_mix'])} kWc"})
 
     h += srow("CAPEX", lambda s,r: fe(r['CAPEX']))
     h += srow("Fonds propres (€)", lambda s,r: fe(r['equity']))
@@ -410,12 +428,27 @@ def render_comparateur_table(p, rc):
     ext = rc['ext']
     best_s = max(STRATS, key=lambda s: rc['cfTotal'][s])
 
+    # STRATS = ['defaut','repow','rep','rev','mix']
     pow_cells = [
         vs(f"{round(Pc*I2)} kWc"),
         vs(f"{round(Pc*(1+u))} kWc"),
         vs(f"{round(Pc*I2)} kWc"),
-        vs(f"{round(Pc)} kWc"),
-        vs(f"{round(Pc)} kWc"),
+        vs(f"{round(p['Pc_rev'])} kWc"),
+        vs(f"{round(p['Pc_mix'])} kWc"),
+    ]
+    fac_rev_cells = [
+        vs("—", '#94a3b8'),
+        vs("—", '#94a3b8'),
+        vs("—", '#94a3b8'),
+        vs(f"{round(p['Pc_rev'])} kWc", '#1e3a5f'),
+        vs("—", '#94a3b8'),
+    ]
+    fac_mix_cells = [
+        vs("—", '#94a3b8'),
+        vs("—", '#94a3b8'),
+        vs("—", '#94a3b8'),
+        vs("—", '#94a3b8'),
+        vs(f"{round(p['Pc_mix'])} kWc", '#92400e'),
     ]
     ext_cells   = [vs('—' if ext[s]==0 else f"+{int(ext[s])} ans PPA") for s in STRATS]
     capex_cells = [vs(fe(p['capex'][s])) for s in STRATS]
@@ -451,6 +484,8 @@ def render_comparateur_table(p, rc):
     h += ''.join(th_comp(s) for s in STRATS)
     h += '</tr></thead><tbody>'
     h += trow("Puissance après intervention", pow_cells)
+    h += trow("Panneaux à façon (Revamping)", fac_rev_cells)
+    h += trow("Panneaux à façon (Mix)", fac_mix_cells)
     h += trow("Extension post-OA", ext_cells)
     h += trow("CAPEX (€)", capex_cells)
     h += trow("Revenus cumulés EDF OA (€)", revOA_cells)
@@ -502,6 +537,9 @@ def generate_pdf(p, fin, results, rc):
         ("PPA post-OA (€/kWh)", f"{p['PPA']:.3f}"),
         ("N1 — Extension Rép/Rev", f"{int(p['N1'])} ans"),
         ("N2 — Extension Repow.", f"{int(p['N2'])} ans"),
+        ("u — Uplift Repowering", f"{p['u']:.1f}%"),
+        ("u' — Uplift Revamping", f"{p.get('u_rev', 0.0):.1f}%"),
+        ("u'' — Uplift Mix", f"{p.get('u_mix', 0.0):.1f}%"),
     ]
     fin_params = [
         ("Fonds propres", f"{fin['equity_pct']:.0f}% du CAPEX"),
@@ -520,12 +558,15 @@ def generate_pdf(p, fin, results, rc):
     lw, vw = 52, 22
 
     syn_labels = [
+        "Panneaux a facon (Rev.)","Panneaux a facon (Mix)",
         "CAPEX","Fonds propres","Dette","Durée totale",
         "CA cumulé","EBITDA cumulé","Résultat net cumulé",
         "Trésorerie finale","Δ Trésorerie vs Défaut","ROE incrémental","DSCR moyen"
     ]
     def syn_val(s, sc, label):
         r = sc; rows = r['rows']
+        if label=="Panneaux a facon (Rev.)": return f"{round(p['Pc_rev'])} kWc" if s=='rev' else '—'
+        if label=="Panneaux a facon (Mix)":  return f"{round(p['Pc_mix'])} kWc" if s=='mix' else '—'
         if label=="CAPEX":               return fe(r['CAPEX'])
         if label=="Fonds propres":       return fe(r['equity'])
         if label=="Dette":               return fe(r['debt'])
@@ -1042,6 +1083,10 @@ with st.sidebar:
     st.number_input("Down_rep (mois)", min_value=0.0, max_value=12.0, step=0.5, format="%.1f", key="fp_Down_rep")
     st.number_input("Down_repow (mois)", min_value=0.0, max_value=24.0, step=1.0, key="fp_Down_repow")
     st.number_input("u — Uplift repowering (%)", min_value=0.0, max_value=50.0, step=1.0, key="fp_u")
+    st.number_input("u' — Uplift revamping (%)", min_value=0.0, max_value=50.0, step=1.0, key="fp_u_rev",
+                    help="Gain de puissance par rapport à Pcentrale nominale grâce aux panneaux à façon (ex: modules plus puissants).")
+    st.number_input("u'' — Uplift mix (%)", min_value=0.0, max_value=50.0, step=1.0, key="fp_u_mix",
+                    help="Gain de puissance sur la partie à façon du scénario Mix (modules plus puissants que l'original).")
 
     st.markdown("#### Mix Réparation + Revamping")
     _ap = st.slider("α_rep — Part réparable (%)", 0, 100, key="fp_alpha_pct")
@@ -1081,7 +1126,7 @@ tab_syn, tab_def, tab_rpw, tab_rep, tab_rev, tab_mix, tab_ren = st.tabs(
 
 with tab_syn:
     st.markdown("#### Tableau de Synthèse — Tous Scénarios")
-    st.markdown(render_synthesis(results), unsafe_allow_html=True)
+    st.markdown(render_synthesis(results, p), unsafe_allow_html=True)
 
 for tab, s in zip([tab_def, tab_rpw, tab_rep, tab_rev, tab_mix], STRATS):
     with tab:
