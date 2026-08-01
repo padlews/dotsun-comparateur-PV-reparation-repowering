@@ -48,21 +48,21 @@ def get_params():
     I2 = (eff_iv / 100) if eff_iv > 0 else (1 - d) ** Y
     alpha_rev = 1 - alpha_rep
     P_res_rep = alpha_rep * n * Pm * I2 / 1000
-    gap_kWc = max(0.0, Pcentrale - P_res_rep)
+    gap_kWc = max(0.0, Pcentrale - P_res_rep)   # déficit puissance (affichage)
     n_rev = alpha_rev * n
-    Pm_fac = gap_kWc * 1000 / n_rev if n_rev > 0 else 0.0
-    # Power at start of each scenario (year 0, before degradation)
-    Pc_rev  = Pcentrale * (1 + u_rev)
-    Pc_mix  = P_res_rep + gap_kWc * (1 + u_mix)
-    # Wc per façon module
+    # façon modules = n_rev panneaux × Pm Wc chacun (même gabarit que l'original)
+    Pm_fac     = Pm                              # base sans uplift
     Pm_fac_rev = Pm * (1 + u_rev)
-    Pm_fac_mix = Pm_fac * (1 + u_mix)
+    Pm_fac_mix = Pm * (1 + u_mix)
+    # Puissance de départ de chaque scénario (an 0, avant dégradation)
+    Pc_rev = Pcentrale * (1 + u_rev)
+    Pc_mix = P_res_rep + n_rev * Pm * (1 + u_mix) / 1000   # converge : α=100%→Rép, α=0%→Rev
     capex = {
         'defaut': 0.0,
         'rep':    n * (float(p['Crep']) + float(p['Cdm'])),
         'rev':    n * (Pm * (1 + u_rev) * float(p['Cfac']) + float(p['Cdm'])),
         'repow':  n * float(p['Cde']) + Pcentrale * 1000 * (1+u) * float(p['Crev']),
-        'mix':    alpha_rep * n * (float(p['Crep']) + float(p['Cdm'])) + gap_kWc * 1000 * (1 + u_mix) * float(p['Cfac']) + n_rev * float(p['Cdm']),
+        'mix':    alpha_rep * n * (float(p['Crep']) + float(p['Cdm'])) + n_rev * Pm * (1 + u_mix) * float(p['Cfac']) + n_rev * float(p['Cdm']),
     }
     p.update(Pcentrale=Pcentrale, I2=I2, alpha_rev=alpha_rev, gap_kWc=gap_kWc,
              n_rev=n_rev, Pm_fac=Pm_fac, capex=capex,
@@ -685,7 +685,7 @@ def generate_pdf(p, fin, results, rc):
         if best_r=='mix':
             mp._f("",8); mp.set_text_color(22,101,52); mp.set_fill_color(240,253,244)
             mp.cell(0,6,
-                f"   Module à façon : {round(p['Pm_fac'])} Wc   |"
+                f"   Module à façon : {round(p['Pm_fac_mix'])} Wc   |"
                 f"   Part remplacement : {round(p['alpha_rev']*100)}%   |"
                 f"   Nb modules : {round(p['n_rev']):,}",
                 fill=True,ln=True)
