@@ -556,6 +556,8 @@ def generate_pdf(p, fin, results, rc):
         if label=="DSCR moyen":         return '—' if r['dscr_avg'] is None else f"{r['dscr_avg']:.2f}"
         return '—'
 
+    project_name = st.session_state.get("fp_project_name", "").strip()
+
     class MixedPDF(FPDF):
         def __init__(self):
             super().__init__(unit='mm', format='A4')
@@ -581,7 +583,8 @@ def generate_pdf(p, fin, results, rc):
             self.set_text_color(245,158,11)
             self.cell(self.get_string_width("Sun"), 4, "Sun")
             self._f("",6); self.set_text_color(100,116,139)
-            self.cell(0, 4, f"   Rapport du {_date.today().strftime('%d/%m/%Y')}  |  Page {self.page_no()}")
+            proj_suffix = f"   |   {project_name}" if project_name else ""
+            self.cell(0, 4, f"   Rapport du {_date.today().strftime('%d/%m/%Y')}  |  Page {self.page_no()}{proj_suffix}")
             self.set_y(-11)
             self._f("",5); self.set_text_color(148,163,184)
             self.set_x(self.l_margin); self.multi_cell(0, 3, DISCLAIMER)
@@ -905,7 +908,11 @@ def generate_pdf(p, fin, results, rc):
     # ── PAGE 1 : Paramètres + Diagramme ─────────────────────────────────────────
     mp.add_page('P')
     mp._f("B",14); mp.set_text_color(15,23,42)
-    mp.cell(0,8,"Rapport Financier - Scénarios de Rénovation PV",ln=True); mp.ln(2)
+    mp.cell(0,8,"Rapport Financier - Scénarios de Rénovation PV",ln=True)
+    if project_name:
+        mp._f("",10); mp.set_text_color(100,116,139)
+        mp.cell(0,6,f"Projet : {project_name}",ln=True)
+    mp.ln(2)
     _section("Paramètres du scénario")
     _params_table(); mp.ln(3)
     _section("Schéma — Évolution de la puissance par scénario")
@@ -1050,6 +1057,9 @@ with st.sidebar:
     c1,c2 = st.columns(2)
     if c1.button("📋 Scénario 1", use_container_width=True): init_state("s1"); st.rerun()
     if c2.button("📋 Scénario 2", use_container_width=True): init_state("s2"); st.rerun()
+
+    st.text_input("Nom du Projet", key="fp_project_name",
+                  placeholder="Ex: Centrale PV Les Moulins")
 
     st.markdown("#### Centrale solaire")
     st.number_input("n — Panneaux", min_value=1.0, step=100.0, format="%.0f", key="fp_n")
