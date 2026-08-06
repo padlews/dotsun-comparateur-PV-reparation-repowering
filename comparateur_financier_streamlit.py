@@ -508,25 +508,36 @@ def generate_pdf(p, fin, results, rc):
                   "DOTSun SAS décline toute responsabilité quant à leur utilisation décisionnelle.")
 
     # ── Build parameters lists (used in portrait page) ──
+    _eff_iv = float(p.get('eff_iv', 0.0))
     proj_params = [
-        ("n — Panneaux", f"{int(p['n']):,}"),
-        ("Pm (Wc)", f"{p['Pm']:.0f}"),
-        ("Pcentrale (kWc)", f"{p['Pcentrale']:,.0f}"),
-        ("H (kWh/kWc/an)", f"{p['H']:.0f}"),
-        ("Y — Âge (ans)", f"{p['Y']:.0f}"),
-        ("d — Dégr. normale (%/an)", f"{p['d']:.2f}%"),
-        ("dn — Dégr. Défaut (%/an)", f"{p['dn']:.1f}%"),
-        ("Eff. actuelle (Eff-IV)" if float(p.get('eff_iv',0))>0 else "Eff. calculée (d×Y)",
-         f"{p['I2']*100:.2f}% *"),
-        ("N — Années OA", f"{int(p['N'])}"),
-        ("Tarif OA (€/kWh)", f"{p['tarif']:.4f}"),
-        ("PPA post-OA (€/kWh)", f"{p['PPA']:.3f}"),
-        ("N1 — Extension Rép/Rev", f"{int(p['N1'])} ans"),
-        ("N2 — Extension Repow.", f"{int(p['N2'])} ans"),
-        ("alpha — Mix Rep./Rev.", f"{int(p['alpha_pct'])}% / {100-int(p['alpha_pct'])}%"),
-        ("u — Uplift Repowering", f"{p['u']:.1f}%"),
-        ("u' — Uplift Revamping", f"{p.get('u_rev', 0.0):.1f}%"),
-        ("u'' — Uplift Mix", f"{p.get('u_mix', 0.0):.1f}%"),
+        # ── Centrale ──
+        ("Nombre de panneaux",                f"{int(p['n']):,}"),
+        ("Puissance nominale / panneau (Wc)", f"{p['Pm']:.0f}"),
+        ("Puissance centrale installée (kWc)",f"{p['Pcentrale']:,.0f}"),
+        ("Productible (kWh/kWc/an)",          f"{p['H']:.0f}"),
+        ("Age de la centrale (ans)",          f"{p['Y']:.0f}"),
+        # ── Dégradation ──
+        ("Dégradation normale (%/an)",        f"{p['d']:.2f}%"),
+        ("Dégradation accélérée — Défaut (%/an)", f"{p['dn']:.1f}%"),
+        ("Efficacité actuelle — mesure IV" if _eff_iv > 0 else "Efficacité calculée (d x Y)",
+         f"{p['I2']*100:.2f}%"),
+        # ── Contrat & Revenus ──
+        ("Années OA restantes",               f"{int(p['N'])} ans"),
+        ("Tarif EDF OA (€/kWh)",              f"{p['tarif']:.4f}"),
+        ("Tarif post-OA PPA (€/kWh)",         f"{p['PPA']:.3f}"),
+        ("Extension post-OA Rép./Rev./Mix",   f"{int(p['N1'])} ans"),
+        ("Extension post-OA Repowering",      f"{int(p['N2'])} ans"),
+        # ── Mix & Uplift ──
+        ("Mix — Réparation / Revamping",      f"{int(p['alpha_pct'])}% / {100-int(p['alpha_pct'])}%"),
+        ("Uplift Repowering (%)",             f"{p['u']:.1f}%"),
+        ("Uplift Revamping (%)",              f"{p.get('u_rev', 0.0):.1f}%"),
+        ("Uplift Mix (%)",                    f"{p.get('u_mix', 0.0):.1f}%"),
+        # ── Coûts d'intervention ──
+        ("Réparation panneaux (€/panneau)",   f"{p['Crep']:.0f}"),
+        ("Démontage & Remontage (€/panneau)", f"{p['Cdm']:.0f}"),
+        ("Démontage complet Repowering (€/pan.)", f"{p['Cde']:.0f}"),
+        ("Module façon sur site (€/Wc)",      f"{p['Cfac']:.2f}"),
+        ("EPC Repowering (€/Wc)",             f"{p['Crev']:.2f}"),
     ]
     fin_params = [
         ("Fonds propres", f"{fin['equity_pct']:.0f}% du CAPEX"),
